@@ -1,37 +1,35 @@
-import { Toaster } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import NotFound from "@/pages/NotFound";
-import { Route, Switch } from "wouter";
-import ErrorBoundary from "../components/ErrorBoundary";
-import { ThemeProvider } from "../contexts/ThemeContext";
+// client/src/pages/App.tsx
+import React from "react";
+import { Router, Route, Switch } from "wouter";
+import { Toaster } from "sonner";
+
+import Landing from "./Landing";
+import Login from "./Login";
 import Dashboard from "./Dashboard";
 
-function Router() {
-  return (
-    <Switch>
-      <Route path="/" component={Dashboard} />
+import { isLoggedIn } from "../lib/auth";
 
-      <Route path="/404" component={NotFound} />
-
-      {/* Final fallback route */}
-      <Route>
-        <NotFound />
-      </Route>
-    </Switch>
-  );
+function PrivateRoute({ children }: { children: React.ReactNode }) {
+  if (!isLoggedIn()) {
+    window.location.href = "/login";
+    return null;
+  }
+  return <>{children}</>;
 }
 
-function App() {
+export default function App() {
   return (
-    <ErrorBoundary>
-      <ThemeProvider defaultTheme="dark">
-        <TooltipProvider>
-          <Toaster />
-          <Router />
-        </TooltipProvider>
-      </ThemeProvider>
-    </ErrorBoundary>
+    <Router>
+      <Toaster position="top-right" />
+      <Switch>
+        <Route path="/" component={Landing} />
+        <Route path="/login" component={Login} />
+        <Route path="/app">
+          <PrivateRoute>
+            <Dashboard />
+          </PrivateRoute>
+        </Route>
+      </Switch>
+    </Router>
   );
 }
-
-export default App;

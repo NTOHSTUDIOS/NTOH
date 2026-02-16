@@ -1,19 +1,19 @@
 // client/src/pages/Dashboard.tsx
 import { useState, useEffect, useMemo } from "react";
-import { Sidebar } from "@/components/Sidebar";
-import { CostForm, type CostItem } from "@/components/CostForm";
-import { ProductForm, type Product } from "@/components/ProductForm";
-import { ReturnForm, type Return } from "@/components/ReturnForm";
+import { Sidebar } from "../components/Sidebar";
+import { CostForm, type CostItem } from "../components/CostForm";
+import { ProductForm, type Product } from "../components/ProductForm";
+import { ReturnForm, type Return } from "../components/ReturnForm";
 import Billing from "./Billing";
 import { toast } from "sonner";
 
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "../components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
+import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { LayoutGrid, List, Plus } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
 
 type CostCategory = "fixed" | "variable" | "tax" | "supplier";
@@ -116,7 +116,8 @@ export default function Dashboard() {
   // --- Handlers Custos (editar/deletar/duplicar) ---
   const handleEditFixedCost = (item: CostItem) => setFixedCosts(fixedCosts.map((c) => (c.id === item.id ? item : c)));
   const handleDeleteFixedCost = (id: string) => setFixedCosts(fixedCosts.filter((c) => c.id !== id));
-  const handleDuplicateFixedCost = (item: CostItem) => setFixedCosts([...fixedCosts, { ...item, id: Date.now().toString() }]);
+  const handleDuplicateFixedCost = (item: CostItem) =>
+    setFixedCosts([...fixedCosts, { ...item, id: Date.now().toString() }]);
 
   const handleEditVariableCost = (item: CostItem) =>
     setVariableCosts(variableCosts.map((c) => (c.id === item.id ? item : c)));
@@ -130,7 +131,8 @@ export default function Dashboard() {
 
   const handleEditSupplier = (item: CostItem) => setSuppliers(suppliers.map((c) => (c.id === item.id ? item : c)));
   const handleDeleteSupplier = (id: string) => setSuppliers(suppliers.filter((c) => c.id !== id));
-  const handleDuplicateSupplier = (item: CostItem) => setSuppliers([...suppliers, { ...item, id: Date.now().toString() }]);
+  const handleDuplicateSupplier = (item: CostItem) =>
+    setSuppliers([...suppliers, { ...item, id: Date.now().toString() }]);
 
   // Adicionar custo (modal único)
   const handleSubmitNewCost = (e: React.FormEvent) => {
@@ -162,7 +164,8 @@ export default function Dashboard() {
   const handleAddProduct = (product: Product) => setProducts([...products, product]);
   const handleEditProduct = (product: Product) => setProducts(products.map((p) => (p.id === product.id ? product : p)));
   const handleDeleteProduct = (id: string) => setProducts(products.filter((p) => p.id !== id));
-  const handleDuplicateProduct = (product: Product) => setProducts([...products, { ...product, id: Date.now().toString() }]);
+  const handleDuplicateProduct = (product: Product) =>
+    setProducts([...products, { ...product, id: Date.now().toString() }]);
 
   // --- Handlers Devoluções ---
   const handleAddReturn = (returnItem: Return) => setReturns([...returns, returnItem]);
@@ -204,10 +207,7 @@ export default function Dashboard() {
 
   // Totais de custos
   const totalFixedCosts = useMemo(() => fixedCosts.reduce((sum, item) => sum + item.amount, 0), [fixedCosts]);
-  const totalVariableCosts = useMemo(
-    () => variableCosts.reduce((sum, item) => sum + item.amount, 0),
-    [variableCosts]
-  );
+  const totalVariableCosts = useMemo(() => variableCosts.reduce((sum, item) => sum + item.amount, 0), [variableCosts]);
   const totalTaxes = useMemo(() => taxes.reduce((sum, item) => sum + item.amount, 0), [taxes]);
   const totalSuppliers = useMemo(() => suppliers.reduce((sum, item) => sum + item.amount, 0), [suppliers]);
 
@@ -422,7 +422,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Seções */}
       <CostForm
         title="Custos Fixos"
         costs={fixedCosts}
@@ -475,15 +474,14 @@ export default function Dashboard() {
   );
 
   return (
-    <div className="flex flex-col sm:flex-row min-h-screen bg-background">
-      <Sidebar
-        activeModule={activeModule}
-        onModuleChange={setActiveModule}
-        onLogout={() => toast.info("Logout em desenvolvimento")}
-      />
+    <div className="min-h-screen bg-background flex">
+      <Sidebar activeModule={activeModule} onModuleChange={setActiveModule} />
 
-      <main className="flex-1 overflow-auto p-4 sm:p-6 lg:p-8">
-        <div className="w-full max-w-6xl mx-auto">
+      <div aria-hidden="true" className="shrink-0" style={{ width: "var(--ntoh-sidebar-width, 80px)" }} />
+
+      {/* ✅ Agora o padding lateral é SIMÉTRICO (mesma distância esquerda e direita) */}
+      <main className="flex-1 h-screen overflow-y-auto py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6 xl:px-8 2xl:px-10">
+        <div className="w-full max-w-[1200px] 2xl:max-w-[1320px]">
           {activeModule === "billing" && renderBilling()}
           {activeModule === "stock" && renderStock()}
           {activeModule === "costs" && renderCosts()}
