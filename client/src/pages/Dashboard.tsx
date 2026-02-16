@@ -5,6 +5,7 @@ import { CostForm, type CostItem } from "../components/CostForm";
 import { ProductForm, type Product } from "../components/ProductForm";
 import { ReturnForm, type Return } from "../components/ReturnForm";
 import Billing from "./Billing";
+import SalesCentral from "./SalesCentral";
 import { toast } from "sonner";
 
 import { Button } from "../components/ui/button";
@@ -250,6 +251,12 @@ export default function Dashboard() {
     </div>
   );
 
+  const renderSales = () => (
+    <div className="space-y-6">
+      <SalesCentral />
+    </div>
+  );
+
   const renderStock = () => (
     <div className="space-y-4 lg:space-y-6">
       <ProductForm
@@ -422,6 +429,7 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Seções */}
       <CostForm
         title="Custos Fixos"
         costs={fixedCosts}
@@ -479,13 +487,20 @@ export default function Dashboard() {
 
       <div aria-hidden="true" className="shrink-0" style={{ width: "var(--ntoh-sidebar-width, 80px)" }} />
 
-      {/* ✅ Agora o padding lateral é SIMÉTRICO (mesma distância esquerda e direita) */}
       <main className="flex-1 h-screen overflow-y-auto py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6 xl:px-8 2xl:px-10">
         <div className="w-full max-w-[1200px] 2xl:max-w-[1320px]">
           {activeModule === "billing" && renderBilling()}
+          {activeModule === "sales" && renderSales()}
           {activeModule === "stock" && renderStock()}
           {activeModule === "costs" && renderCosts()}
           {activeModule === "devolutions" && renderDevolutions()}
+
+          {/* Fallback: se módulo não reconhecido, mostra mensagem */}
+          {!["billing", "sales", "stock", "costs", "devolutions"].includes(activeModule) && (
+            <div className="text-sm text-muted-foreground">
+              Módulo não encontrado: {activeModule}
+            </div>
+          )}
         </div>
       </main>
     </div>

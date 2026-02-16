@@ -153,9 +153,8 @@ export default function SalesCentral() {
     };
   }, [orders, todayKey]);
 
-  // Série por hora (gráfico “linhas ilustrando desempenho”)
+  // Série por hora
   const hourlySeries = useMemo(() => {
-    // buckets 08h..20h (ajusta fácil)
     const hours = Array.from({ length: 13 }, (_, i) => 8 + i);
     const base = hours.map((h) => ({
       hour: `${String(h).padStart(2, "0")}:00`,
@@ -175,7 +174,6 @@ export default function SalesCentral() {
       }
     }
 
-    // acumulado pra ficar com “cara de dashboard”
     let accSales = 0;
     let accProfit = 0;
     return base.map((p) => {
@@ -199,10 +197,11 @@ export default function SalesCentral() {
   const shippedOrders = useMemo(() => orders.filter((o) => o.status === "shipped"), [orders]);
 
   return (
-    <div className="space-y-6">
-      {/* KPIs - mesma vibe do Billing */}
+    // ✅ overflow-x-hidden evita qualquer “vazamento” que gere scroll horizontal
+    <div className="space-y-6 overflow-x-hidden">
+      {/* KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 lg:gap-4">
-        <Card className="bg-card/50 border-purple-500/20">
+        <Card className="bg-card/50 border-purple-500/20 min-w-0">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm text-muted-foreground">Pendentes</CardTitle>
           </CardHeader>
@@ -211,7 +210,7 @@ export default function SalesCentral() {
           </CardContent>
         </Card>
 
-        <Card className="bg-card/50 border-purple-500/20">
+        <Card className="bg-card/50 border-purple-500/20 min-w-0">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm text-muted-foreground">Em andamento</CardTitle>
           </CardHeader>
@@ -220,7 +219,7 @@ export default function SalesCentral() {
           </CardContent>
         </Card>
 
-        <Card className="bg-card/50 border-purple-500/20">
+        <Card className="bg-card/50 border-purple-500/20 min-w-0">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm text-muted-foreground">Enviados</CardTitle>
           </CardHeader>
@@ -229,7 +228,7 @@ export default function SalesCentral() {
           </CardContent>
         </Card>
 
-        <Card className="bg-card/50 border-purple-500/20">
+        <Card className="bg-card/50 border-purple-500/20 min-w-0">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm text-muted-foreground">Devoluções</CardTitle>
           </CardHeader>
@@ -238,7 +237,7 @@ export default function SalesCentral() {
           </CardContent>
         </Card>
 
-        <Card className="bg-card/50 border-purple-500/20">
+        <Card className="bg-card/50 border-purple-500/20 min-w-0">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm text-muted-foreground">Total vendido hoje</CardTitle>
           </CardHeader>
@@ -247,7 +246,7 @@ export default function SalesCentral() {
           </CardContent>
         </Card>
 
-        <Card className="bg-card/50 border-purple-500/20">
+        <Card className="bg-card/50 border-purple-500/20 min-w-0">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm text-muted-foreground">Lucro líquido hoje</CardTitle>
           </CardHeader>
@@ -257,13 +256,13 @@ export default function SalesCentral() {
         </Card>
       </div>
 
-      {/* Gráficos - janelas flutuantes com linhas e cores */}
+      {/* Gráficos */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card className="bg-card/50 border-purple-500/20">
+        <Card className="bg-card/50 border-purple-500/20 min-w-0">
           <CardHeader>
             <CardTitle className="text-cyan-300">Desempenho do dia (acumulado)</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="min-w-0">
             <ResponsiveContainer width="100%" height={300}>
               <LineChart data={hourlySeries}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#333" />
@@ -283,15 +282,15 @@ export default function SalesCentral() {
           </CardContent>
         </Card>
 
-        <Card className="bg-card/50 border-purple-500/20">
+        <Card className="bg-card/50 border-purple-500/20 min-w-0">
           <CardHeader>
             <CardTitle className="text-cyan-300">Pedidos por status</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="min-w-0">
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={statusBarData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                <XAxis dataKey="name" stroke="#999" />
+                <XAxis dataKey="name" stroke="#999" interval={0} tick={{ fontSize: 12 }} />
                 <YAxis stroke="#999" allowDecimals={false} />
                 <Tooltip
                   contentStyle={{ backgroundColor: "#1a1a2e", border: "1px solid #333" }}
@@ -305,39 +304,44 @@ export default function SalesCentral() {
         </Card>
       </div>
 
-      {/* Filas / Kanban de pedidos */}
+      {/* Filas / Kanban */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <Card className="bg-card/50 border-purple-500/20">
+        <Card className="bg-card/50 border-purple-500/20 min-w-0">
           <CardHeader className="pb-3">
             <CardTitle className="text-cyan-300">Pendentes</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-3 min-w-0">
             {pendingOrders.length === 0 ? (
               <p className="text-sm text-muted-foreground">Sem pendências</p>
             ) : (
               pendingOrders.map((o) => (
                 <div
                   key={o.id}
-                  className="rounded-lg border border-cyan-500/10 bg-card/30 p-3 hover:border-cyan-400/40 transition-all hover:shadow-[0_0_18px_rgba(34,211,238,0.20)]"
+                  className="rounded-lg border border-cyan-500/10 bg-card/30 p-3 hover:border-cyan-400/40 transition-all hover:shadow-[0_0_18px_rgba(34,211,238,0.20)] min-w-0"
                 >
-                  <div className="flex items-start justify-between gap-3">
+                  {/* ✅ min-w-0 no flex pai para permitir shrink */}
+                  <div className="flex items-start justify-between gap-3 min-w-0">
                     <div className="min-w-0">
+                      {/* ✅ break-words garante que IDs grandes não estorem */}
                       <p className="font-semibold text-foreground truncate">#{o.id}</p>
                       <p className="text-xs text-muted-foreground truncate">{o.customerName}</p>
                       <p className="text-xs text-muted-foreground">{formatBRL(o.total)}</p>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 shrink-0">
                       <span className={`w-2.5 h-2.5 rounded-full ${CHANNEL_DOT[o.channel]}`} />
-                      <span className={`text-xs font-semibold ${STATUS_COLOR[o.status]}`}>{STATUS_LABEL[o.status]}</span>
+                      <span className={`text-xs font-semibold ${STATUS_COLOR[o.status]} whitespace-nowrap`}>
+                        {STATUS_LABEL[o.status]}
+                      </span>
                     </div>
                   </div>
 
-                  <div className="mt-3 flex gap-2">
+                  {/* ✅ botões: wrap pra não estourar */}
+                  <div className="mt-3 flex flex-wrap gap-2">
                     <Button
                       size="sm"
                       variant="outline"
-                      className="w-full border-sidebar-border hover:bg-sidebar-accent/20"
+                      className="flex-1 min-w-[110px] border-sidebar-border hover:bg-sidebar-accent/20"
                       onClick={() => toast.info("Ação: mover para andamento (MVP)")}
                     >
                       Iniciar
@@ -345,7 +349,7 @@ export default function SalesCentral() {
                     <Button
                       size="sm"
                       variant="outline"
-                      className="w-full border-sidebar-border hover:bg-sidebar-accent/20"
+                      className="flex-1 min-w-[110px] border-sidebar-border hover:bg-sidebar-accent/20"
                       onClick={() => toast.info("Detalhes do pedido (MVP)")}
                     >
                       Ver
@@ -357,37 +361,39 @@ export default function SalesCentral() {
           </CardContent>
         </Card>
 
-        <Card className="bg-card/50 border-purple-500/20">
+        <Card className="bg-card/50 border-purple-500/20 min-w-0">
           <CardHeader className="pb-3">
             <CardTitle className="text-cyan-300">Em andamento</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-3 min-w-0">
             {processingOrders.length === 0 ? (
               <p className="text-sm text-muted-foreground">Nada em andamento</p>
             ) : (
               processingOrders.map((o) => (
                 <div
                   key={o.id}
-                  className="rounded-lg border border-cyan-500/10 bg-card/30 p-3 hover:border-cyan-400/40 transition-all hover:shadow-[0_0_18px_rgba(34,211,238,0.20)]"
+                  className="rounded-lg border border-cyan-500/10 bg-card/30 p-3 hover:border-cyan-400/40 transition-all hover:shadow-[0_0_18px_rgba(34,211,238,0.20)] min-w-0"
                 >
-                  <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start justify-between gap-3 min-w-0">
                     <div className="min-w-0">
                       <p className="font-semibold text-foreground truncate">#{o.id}</p>
                       <p className="text-xs text-muted-foreground truncate">{o.customerName}</p>
                       <p className="text-xs text-muted-foreground">{formatBRL(o.total)}</p>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 shrink-0">
                       <span className={`w-2.5 h-2.5 rounded-full ${CHANNEL_DOT[o.channel]}`} />
-                      <span className={`text-xs font-semibold ${STATUS_COLOR[o.status]}`}>{STATUS_LABEL[o.status]}</span>
+                      <span className={`text-xs font-semibold ${STATUS_COLOR[o.status]} whitespace-nowrap`}>
+                        {STATUS_LABEL[o.status]}
+                      </span>
                     </div>
                   </div>
 
-                  <div className="mt-3 flex gap-2">
+                  <div className="mt-3 flex flex-wrap gap-2">
                     <Button
                       size="sm"
                       variant="outline"
-                      className="w-full border-sidebar-border hover:bg-sidebar-accent/20"
+                      className="flex-1 min-w-[110px] border-sidebar-border hover:bg-sidebar-accent/20"
                       onClick={() => toast.info("Ação: marcar como enviado (MVP)")}
                     >
                       Enviar
@@ -395,7 +401,7 @@ export default function SalesCentral() {
                     <Button
                       size="sm"
                       variant="outline"
-                      className="w-full border-sidebar-border hover:bg-sidebar-accent/20"
+                      className="flex-1 min-w-[110px] border-sidebar-border hover:bg-sidebar-accent/20"
                       onClick={() => toast.info("Detalhes do pedido (MVP)")}
                     >
                       Ver
@@ -407,37 +413,39 @@ export default function SalesCentral() {
           </CardContent>
         </Card>
 
-        <Card className="bg-card/50 border-purple-500/20">
+        <Card className="bg-card/50 border-purple-500/20 min-w-0">
           <CardHeader className="pb-3">
             <CardTitle className="text-cyan-300">Enviados</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-3 min-w-0">
             {shippedOrders.length === 0 ? (
               <p className="text-sm text-muted-foreground">Nenhum envio ainda</p>
             ) : (
               shippedOrders.map((o) => (
                 <div
                   key={o.id}
-                  className="rounded-lg border border-cyan-500/10 bg-card/30 p-3 hover:border-cyan-400/40 transition-all hover:shadow-[0_0_18px_rgba(34,211,238,0.20)]"
+                  className="rounded-lg border border-cyan-500/10 bg-card/30 p-3 hover:border-cyan-400/40 transition-all hover:shadow-[0_0_18px_rgba(34,211,238,0.20)] min-w-0"
                 >
-                  <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start justify-between gap-3 min-w-0">
                     <div className="min-w-0">
                       <p className="font-semibold text-foreground truncate">#{o.id}</p>
                       <p className="text-xs text-muted-foreground truncate">{o.customerName}</p>
                       <p className="text-xs text-muted-foreground">{formatBRL(o.total)}</p>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 shrink-0">
                       <span className={`w-2.5 h-2.5 rounded-full ${CHANNEL_DOT[o.channel]}`} />
-                      <span className={`text-xs font-semibold ${STATUS_COLOR[o.status]}`}>{STATUS_LABEL[o.status]}</span>
+                      <span className={`text-xs font-semibold ${STATUS_COLOR[o.status]} whitespace-nowrap`}>
+                        {STATUS_LABEL[o.status]}
+                      </span>
                     </div>
                   </div>
 
-                  <div className="mt-3 flex gap-2">
+                  <div className="mt-3 flex flex-wrap gap-2">
                     <Button
                       size="sm"
                       variant="outline"
-                      className="w-full border-sidebar-border hover:bg-sidebar-accent/20"
+                      className="flex-1 min-w-[110px] border-sidebar-border hover:bg-sidebar-accent/20"
                       onClick={() => toast.info("Ação: abrir comprovante/etiqueta (MVP)")}
                     >
                       Etiqueta
@@ -445,7 +453,7 @@ export default function SalesCentral() {
                     <Button
                       size="sm"
                       variant="outline"
-                      className="w-full border-sidebar-border hover:bg-sidebar-accent/20"
+                      className="flex-1 min-w-[110px] border-sidebar-border hover:bg-sidebar-accent/20"
                       onClick={() => toast.info("Detalhes do pedido (MVP)")}
                     >
                       Ver
