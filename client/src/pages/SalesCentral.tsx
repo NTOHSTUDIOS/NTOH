@@ -197,61 +197,60 @@ export default function SalesCentral() {
   const shippedOrders = useMemo(() => orders.filter((o) => o.status === "shipped"), [orders]);
 
   return (
-    // ✅ overflow-x-hidden evita qualquer “vazamento” que gere scroll horizontal
-    <div className="space-y-6 overflow-x-hidden">
-      {/* KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 lg:gap-4">
+    <div className="space-y-5 overflow-x-hidden min-w-0">
+      {/* KPIs (menores) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
         <Card className="bg-card/50 border-purple-500/20 min-w-0">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm text-muted-foreground">Pendentes</CardTitle>
+          <CardHeader className="py-3">
+            <CardTitle className="text-xs text-muted-foreground">Pendentes</CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-cyan-300">{stats.pending}</p>
+          <CardContent className="pt-0 pb-4">
+            <p className="text-2xl font-bold leading-none text-cyan-300">{stats.pending}</p>
           </CardContent>
         </Card>
 
         <Card className="bg-card/50 border-purple-500/20 min-w-0">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm text-muted-foreground">Em andamento</CardTitle>
+          <CardHeader className="py-3">
+            <CardTitle className="text-xs text-muted-foreground">Em andamento</CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-cyan-300">{stats.processing}</p>
+          <CardContent className="pt-0 pb-4">
+            <p className="text-2xl font-bold leading-none text-cyan-300">{stats.processing}</p>
           </CardContent>
         </Card>
 
         <Card className="bg-card/50 border-purple-500/20 min-w-0">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm text-muted-foreground">Enviados</CardTitle>
+          <CardHeader className="py-3">
+            <CardTitle className="text-xs text-muted-foreground">Enviados</CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-cyan-300">{stats.shipped}</p>
+          <CardContent className="pt-0 pb-4">
+            <p className="text-2xl font-bold leading-none text-cyan-300">{stats.shipped}</p>
           </CardContent>
         </Card>
 
         <Card className="bg-card/50 border-purple-500/20 min-w-0">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm text-muted-foreground">Devoluções</CardTitle>
+          <CardHeader className="py-3">
+            <CardTitle className="text-xs text-muted-foreground">Devoluções</CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-cyan-300">{stats.returned}</p>
+          <CardContent className="pt-0 pb-4">
+            <p className="text-2xl font-bold leading-none text-cyan-300">{stats.returned}</p>
           </CardContent>
         </Card>
 
         <Card className="bg-card/50 border-purple-500/20 min-w-0">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm text-muted-foreground">Total vendido hoje</CardTitle>
+          <CardHeader className="py-3">
+            <CardTitle className="text-xs text-muted-foreground">Total vendido hoje</CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-cyan-300">{formatBRL(stats.soldToday)}</p>
+          <CardContent className="pt-0 pb-4">
+            <p className="text-2xl font-bold leading-none text-cyan-300 truncate">{formatBRL(stats.soldToday)}</p>
           </CardContent>
         </Card>
 
         <Card className="bg-card/50 border-purple-500/20 min-w-0">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm text-muted-foreground">Lucro líquido hoje</CardTitle>
+          <CardHeader className="py-3">
+            <CardTitle className="text-xs text-muted-foreground">Lucro líquido hoje</CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-cyan-300">{formatBRL(stats.netProfitToday)}</p>
+          <CardContent className="pt-0 pb-4">
+            <p className="text-2xl font-bold leading-none text-cyan-300 truncate">{formatBRL(stats.netProfitToday)}</p>
           </CardContent>
         </Card>
       </div>
@@ -259,11 +258,11 @@ export default function SalesCentral() {
       {/* Gráficos */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card className="bg-card/50 border-purple-500/20 min-w-0">
-          <CardHeader>
+          <CardHeader className="py-4">
             <CardTitle className="text-cyan-300">Desempenho do dia (acumulado)</CardTitle>
           </CardHeader>
           <CardContent className="min-w-0">
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={280}>
               <LineChart data={hourlySeries}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#333" />
                 <XAxis dataKey="hour" stroke="#999" />
@@ -283,11 +282,11 @@ export default function SalesCentral() {
         </Card>
 
         <Card className="bg-card/50 border-purple-500/20 min-w-0">
-          <CardHeader>
+          <CardHeader className="py-4">
             <CardTitle className="text-cyan-300">Pedidos por status</CardTitle>
           </CardHeader>
           <CardContent className="min-w-0">
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={280}>
               <BarChart data={statusBarData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#333" />
                 <XAxis dataKey="name" stroke="#999" interval={0} tick={{ fontSize: 12 }} />
@@ -307,7 +306,7 @@ export default function SalesCentral() {
       {/* Filas / Kanban */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <Card className="bg-card/50 border-purple-500/20 min-w-0">
-          <CardHeader className="pb-3">
+          <CardHeader className="py-4">
             <CardTitle className="text-cyan-300">Pendentes</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 min-w-0">
@@ -319,10 +318,8 @@ export default function SalesCentral() {
                   key={o.id}
                   className="rounded-lg border border-cyan-500/10 bg-card/30 p-3 hover:border-cyan-400/40 transition-all hover:shadow-[0_0_18px_rgba(34,211,238,0.20)] min-w-0"
                 >
-                  {/* ✅ min-w-0 no flex pai para permitir shrink */}
                   <div className="flex items-start justify-between gap-3 min-w-0">
                     <div className="min-w-0">
-                      {/* ✅ break-words garante que IDs grandes não estorem */}
                       <p className="font-semibold text-foreground truncate">#{o.id}</p>
                       <p className="text-xs text-muted-foreground truncate">{o.customerName}</p>
                       <p className="text-xs text-muted-foreground">{formatBRL(o.total)}</p>
@@ -336,7 +333,6 @@ export default function SalesCentral() {
                     </div>
                   </div>
 
-                  {/* ✅ botões: wrap pra não estourar */}
                   <div className="mt-3 flex flex-wrap gap-2">
                     <Button
                       size="sm"
@@ -362,7 +358,7 @@ export default function SalesCentral() {
         </Card>
 
         <Card className="bg-card/50 border-purple-500/20 min-w-0">
-          <CardHeader className="pb-3">
+          <CardHeader className="py-4">
             <CardTitle className="text-cyan-300">Em andamento</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 min-w-0">
@@ -414,7 +410,7 @@ export default function SalesCentral() {
         </Card>
 
         <Card className="bg-card/50 border-purple-500/20 min-w-0">
-          <CardHeader className="pb-3">
+          <CardHeader className="py-4">
             <CardTitle className="text-cyan-300">Enviados</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 min-w-0">

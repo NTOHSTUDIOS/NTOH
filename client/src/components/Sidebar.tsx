@@ -35,11 +35,13 @@ type SidebarModule = {
 const COLLAPSE_KEY = "ntoh_sidebar_collapsed";
 const SIDEBAR_VAR = "--ntoh-sidebar-width";
 
-// Tailwind reference:
-// w-64 => 16rem => 256px
-// w-20 => 5rem  => 80px
-const WIDTH_EXPANDED_PX = 256;
-const WIDTH_COLLAPSED_PX = 80;
+// expanded: 14rem = 224px (w-56)
+// collapsed: 4rem  = 64px  (w-16)
+const WIDTH_EXPANDED_PX = 224;
+const WIDTH_COLLAPSED_PX = 64;
+
+// ✅ como você renomeou para client/public/logo.png
+const LOGO_SRC = "/logo-v3.png";
 
 export function Sidebar({ activeModule, onModuleChange, onLogout }: SidebarProps) {
   const [, setLocation] = useLocation();
@@ -60,7 +62,6 @@ export function Sidebar({ activeModule, onModuleChange, onLogout }: SidebarProps
     }
   }, [collapsed]);
 
-  // ✅ Garante que a CSS var SEMPRE reflita o estado atual
   useEffect(() => {
     const width = collapsed ? WIDTH_COLLAPSED_PX : WIDTH_EXPANDED_PX;
     document.documentElement.style.setProperty(SIDEBAR_VAR, `${width}px`);
@@ -68,9 +69,7 @@ export function Sidebar({ activeModule, onModuleChange, onLogout }: SidebarProps
 
   const modules: SidebarModule[] = useMemo(
     () => [
-      // ✅ Central de Vendas como primeiro item
       { id: "sales", label: "Central de Vendas", icon: TrendingUp, description: "Acompanhe pedidos e status", order: 10 },
-
       { id: "billing", label: "Faturamento", icon: BarChart3, description: "Integração Shopee e análise de vendas", order: 20 },
       { id: "stock", label: "Estoque", icon: Package, description: "Gerenciar inventário", order: 30 },
       { id: "costs", label: "Custos", icon: DollarSign, description: "Controlar custos fixos e variáveis", order: 40 },
@@ -109,13 +108,13 @@ export function Sidebar({ activeModule, onModuleChange, onLogout }: SidebarProps
             aria-current={isActive ? "page" : undefined}
             className={[
               "flex items-center justify-center",
-              "w-12 h-12 rounded-xl shrink-0",
+              "w-8 h-8 rounded-lg shrink-0",
               "transition-colors duration-150",
               "focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40",
               isActive ? activeClasses : idleClasses,
             ].join(" ")}
           >
-            <Icon className="w-5 h-5 text-current" />
+            <Icon className="w-4 h-4 text-current" />
           </button>
         </TooltipTrigger>
         <TooltipContent side="right">
@@ -136,16 +135,16 @@ export function Sidebar({ activeModule, onModuleChange, onLogout }: SidebarProps
         onClick={() => onModuleChange(module.id)}
         aria-current={isActive ? "page" : undefined}
         className={[
-          "w-full text-left p-3 rounded-lg transition-all duration-150",
+          "w-full text-left px-3 py-1.5 rounded-lg transition-all duration-150",
           "focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40",
           isActive ? activeClasses : idleClasses,
         ].join(" ")}
       >
         <div className="flex items-start gap-3">
-          <Icon className="w-5 h-5 mt-0.5 shrink-0 text-current" />
+          <Icon className="w-4 h-4 mt-0.5 shrink-0 text-current" />
           <div className="min-w-0">
-            <p className="text-sm font-medium">{module.label}</p>
-            <p className="text-xs text-sidebar-foreground/60 line-clamp-2">{module.description}</p>
+            <p className="text-sm font-medium leading-snug">{module.label}</p>
+            <p className="text-xs text-sidebar-foreground/60 line-clamp-2 leading-snug">{module.description}</p>
           </div>
         </div>
       </button>
@@ -159,23 +158,20 @@ export function Sidebar({ activeModule, onModuleChange, onLogout }: SidebarProps
           "fixed left-0 top-0 h-screen z-40",
           "bg-sidebar border-r border-sidebar-border",
           "flex flex-col transition-[width] duration-200 ease-in-out",
-          collapsed ? "w-20" : "w-64",
+          "overflow-hidden",
+          collapsed ? "w-16" : "w-56",
         ].join(" ")}
       >
         {/* Header */}
-        <div className={["p-4 sm:p-6 border-b border-sidebar-border flex flex-col", collapsed ? "items-center" : ""].join(" ")}>
+        <div className={["p-3 sm:p-4 border-b border-sidebar-border flex flex-col", collapsed ? "items-center" : ""].join(" ")}>
           <div className={["flex items-center w-full", collapsed ? "justify-center" : "justify-between"].join(" ")}>
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-cyan-500 rounded flex items-center justify-center text-white font-bold text-sm shrink-0">
-                N
-              </div>
-
-              {!collapsed && (
-                <div className="min-w-0">
-                  <h1 className="text-sm font-bold text-sidebar-foreground truncate">NTOH BUSINESS</h1>
-                  <p className="text-xs text-sidebar-foreground/60 truncate">Automação</p>
-                </div>
-              )}
+            {/* ✅ Logo PNG (substitui N + NTOH BUSINESS) */}
+            <div className={["flex items-center min-w-0", collapsed ? "justify-center" : ""].join(" ")}>
+              <img
+                src={LOGO_SRC}
+                alt="Logo NTOH"
+                className={collapsed ? "h-8 w-8 object-contain" : "h-8 w-auto max-w-[140px] object-contain"}
+              />
             </div>
 
             {!collapsed && (
@@ -183,7 +179,7 @@ export function Sidebar({ activeModule, onModuleChange, onLogout }: SidebarProps
                 type="button"
                 variant="outline"
                 size="icon"
-                className="border-sidebar-border hover:bg-sidebar-accent/20 shrink-0 ml-2"
+                className="border-sidebar-border hover:bg-sidebar-accent/20 shrink-0 ml-2 h-9 w-9"
                 onClick={() => setCollapsed(true)}
                 title="Minimizar"
               >
@@ -197,7 +193,7 @@ export function Sidebar({ activeModule, onModuleChange, onLogout }: SidebarProps
               type="button"
               variant="outline"
               size="icon"
-              className="mt-4 border-sidebar-border hover:bg-sidebar-accent/20"
+              className="mt-3 border-sidebar-border hover:bg-sidebar-accent/20 h-9 w-9"
               onClick={() => setCollapsed(false)}
               title="Expandir"
             >
@@ -207,14 +203,14 @@ export function Sidebar({ activeModule, onModuleChange, onLogout }: SidebarProps
         </div>
 
         {/* Navigation */}
-        <nav className={["flex-1 p-4 space-y-4 flex flex-col", collapsed ? "items-center" : "overflow-y-auto"].join(" ")}>
+        <nav className={["flex-1 p-3 space-y-1.5 flex flex-col", collapsed ? "items-center" : ""].join(" ")}>
           {collapsed ? sortedModules.map(renderCollapsedItem) : sortedModules.map(renderExpandedItem)}
         </nav>
 
         {/* Footer */}
-        <div className={["p-4 border-t border-sidebar-border flex flex-col", collapsed ? "items-center" : ""].join(" ")}>
+        <div className={["p-3 border-t border-sidebar-border flex flex-col", collapsed ? "items-center" : ""].join(" ")}>
           {!collapsed ? (
-            <div className="mb-4 p-3 bg-sidebar-accent/10 rounded-lg w-full">
+            <div className="mb-3 p-3 bg-sidebar-accent/10 rounded-lg w-full">
               <p className="text-xs text-sidebar-foreground/60">Usuário</p>
               <p className="text-sm font-medium text-sidebar-foreground mt-1 truncate">{userName || "—"}</p>
               <p className="text-xs text-sidebar-foreground/60 mt-0.5 truncate">{userEmail || "—"}</p>
@@ -222,8 +218,8 @@ export function Sidebar({ activeModule, onModuleChange, onLogout }: SidebarProps
           ) : (
             <Tooltip>
               <TooltipTrigger asChild>
-                <div className="mb-4 flex justify-center cursor-default">
-                  <div className="w-10 h-10 rounded-full bg-sidebar-accent/10 border border-sidebar-border flex items-center justify-center text-sidebar-foreground text-xs font-semibold shrink-0">
+                <div className="mb-3 flex justify-center cursor-default">
+                  <div className="w-9 h-9 rounded-full bg-sidebar-accent/10 border border-sidebar-border flex items-center justify-center text-sidebar-foreground text-xs font-semibold shrink-0">
                     {(userName || "U").slice(0, 1).toUpperCase()}
                   </div>
                 </div>
@@ -238,7 +234,7 @@ export function Sidebar({ activeModule, onModuleChange, onLogout }: SidebarProps
           <Button
             variant="outline"
             size={collapsed ? "icon" : "sm"}
-            className={["border-sidebar-border hover:bg-sidebar-accent/20", collapsed ? "w-12 h-12" : "w-full"].join(" ")}
+            className={["border-sidebar-border hover:bg-sidebar-accent/20", collapsed ? "w-9 h-9" : "w-full h-9"].join(" ")}
             onClick={handleLogout}
             title="Sair"
           >

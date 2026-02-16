@@ -29,25 +29,17 @@ type NewCostFormState = {
 type CostHistoryPoint = { date: string; total: number };
 
 export default function Dashboard() {
-  // ✅ Default mudado para "sales" (abre na Central de Vendas)
   const [activeModule, setActiveModule] = useState("sales");
 
-  // Custos
   const [fixedCosts, setFixedCosts] = useState<CostItem[]>([]);
   const [variableCosts, setVariableCosts] = useState<CostItem[]>([]);
   const [taxes, setTaxes] = useState<CostItem[]>([]);
   const [suppliers, setSuppliers] = useState<CostItem[]>([]);
 
-  // Estoque
   const [products, setProducts] = useState<Product[]>([]);
-
-  // Devoluções
   const [returns, setReturns] = useState<Return[]>([]);
-
-  // Custos: modo de visualização único
   const [costsViewMode, setCostsViewMode] = useState<"grid" | "list">("list");
 
-  // Modal único de "Adicionar Custo"
   const [isCostDialogOpen, setIsCostDialogOpen] = useState(false);
   const [newCost, setNewCost] = useState<NewCostFormState>({
     category: "fixed",
@@ -56,10 +48,8 @@ export default function Dashboard() {
     description: "",
   });
 
-  // Histórico de custos para o gráfico
   const [costHistory, setCostHistory] = useState<CostHistoryPoint[]>([]);
 
-  // Carregar dados do LocalStorage (com migração para createdAt em devoluções antigas)
   useEffect(() => {
     const savedFixedCosts = localStorage.getItem("ntoh_fixed_costs");
     const savedVariableCosts = localStorage.getItem("ntoh_variable_costs");
@@ -105,7 +95,6 @@ export default function Dashboard() {
     if (savedCostHistory) setCostHistory(JSON.parse(savedCostHistory));
   }, []);
 
-  // Persistência
   useEffect(() => localStorage.setItem("ntoh_fixed_costs", JSON.stringify(fixedCosts)), [fixedCosts]);
   useEffect(() => localStorage.setItem("ntoh_variable_costs", JSON.stringify(variableCosts)), [variableCosts]);
   useEffect(() => localStorage.setItem("ntoh_taxes", JSON.stringify(taxes)), [taxes]);
@@ -115,7 +104,6 @@ export default function Dashboard() {
   useEffect(() => localStorage.setItem("ntoh_returns", JSON.stringify(returns)), [returns]);
   useEffect(() => localStorage.setItem("ntoh_cost_history", JSON.stringify(costHistory)), [costHistory]);
 
-  // --- Handlers Custos (editar/deletar/duplicar) ---
   const handleEditFixedCost = (item: CostItem) => setFixedCosts(fixedCosts.map((c) => (c.id === item.id ? item : c)));
   const handleDeleteFixedCost = (id: string) => setFixedCosts(fixedCosts.filter((c) => c.id !== id));
   const handleDuplicateFixedCost = (item: CostItem) =>
@@ -136,7 +124,6 @@ export default function Dashboard() {
   const handleDuplicateSupplier = (item: CostItem) =>
     setSuppliers([...suppliers, { ...item, id: Date.now().toString() }]);
 
-  // Adicionar custo (modal único)
   const handleSubmitNewCost = (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -162,35 +149,24 @@ export default function Dashboard() {
     setNewCost({ category: "fixed", name: "", amount: 0, description: "" });
   };
 
-  // --- Handlers Produtos ---
   const handleAddProduct = (product: Product) => setProducts([...products, product]);
   const handleEditProduct = (product: Product) => setProducts(products.map((p) => (p.id === product.id ? product : p)));
   const handleDeleteProduct = (id: string) => setProducts(products.filter((p) => p.id !== id));
   const handleDuplicateProduct = (product: Product) =>
     setProducts([...products, { ...product, id: Date.now().toString() }]);
 
-  // --- Handlers Devoluções ---
   const handleAddReturn = (returnItem: Return) => setReturns([...returns, returnItem]);
-
   const handleEditReturn = (returnItem: Return) =>
     setReturns(returns.map((r) => (r.id === returnItem.id ? returnItem : r)));
-
   const handleDeleteReturn = (id: string) => setReturns(returns.filter((r) => r.id !== id));
-
   const handleDuplicateReturn = (returnItem: Return) =>
     setReturns([
       ...returns,
-      {
-        ...returnItem,
-        id: Date.now().toString(),
-        status: "pending",
-        createdAt: new Date().toISOString(),
-      },
+      { ...returnItem, id: Date.now().toString(), status: "pending", createdAt: new Date().toISOString() },
     ]);
 
   const handleMoveToProcessing = (id: string) =>
     setReturns(returns.map((r) => (r.id === id ? { ...r, status: "processing" } : r)));
-
   const handleMoveToCompleted = (id: string) =>
     setReturns(returns.map((r) => (r.id === id ? { ...r, status: "completed" } : r)));
 
@@ -207,7 +183,6 @@ export default function Dashboard() {
     setProducts([...products, newProduct]);
   };
 
-  // Totais de custos
   const totalFixedCosts = useMemo(() => fixedCosts.reduce((sum, item) => sum + item.amount, 0), [fixedCosts]);
   const totalVariableCosts = useMemo(() => variableCosts.reduce((sum, item) => sum + item.amount, 0), [variableCosts]);
   const totalTaxes = useMemo(() => taxes.reduce((sum, item) => sum + item.amount, 0), [taxes]);
@@ -215,9 +190,8 @@ export default function Dashboard() {
 
   const totalOperationalCosts = totalFixedCosts + totalVariableCosts + totalTaxes + totalSuppliers;
 
-  // Registrar histórico diário dos custos
   const recordTodayCostTotal = (total: number) => {
-    const today = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
+    const today = new Date().toISOString().slice(0, 10);
 
     setCostHistory((prev) => {
       const next = [...prev];
@@ -226,26 +200,22 @@ export default function Dashboard() {
       if (idx >= 0) next[idx] = { date: today, total };
       else next.push({ date: today, total });
 
-      // mantém só os últimos 30 pontos
       next.sort((a, b) => a.date.localeCompare(b.date));
       return next.slice(-30);
     });
   };
 
-  // Atualizar histórico sempre que o total mudar
   useEffect(() => {
     recordTodayCostTotal(totalOperationalCosts);
   }, [totalOperationalCosts]);
 
-  // Preparar dados do gráfico
   const costHistoryChartData = useMemo(() => {
     return costHistory.map((p) => ({
-      label: p.date.slice(5).split("-").reverse().join("/"), // "YYYY-MM-DD" -> "DD/MM"
+      label: p.date.slice(5).split("-").reverse().join("/"),
       custos: p.total,
     }));
   }, [costHistory]);
 
-  // --- Renderizações ---
   const renderBilling = () => (
     <div className="space-y-6">
       <Billing fixedCosts={fixedCosts} variableCosts={variableCosts} products={products} />
@@ -272,7 +242,6 @@ export default function Dashboard() {
 
   const renderCosts = () => (
     <div className="space-y-6">
-      {/* KPIs no topo */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="rounded-xl border border-cyan-500/20 bg-card/50 px-5 py-4 transition-all duration-200 hover:border-cyan-400/70 hover:shadow-[0_0_24px_rgba(34,211,238,0.35)]">
           <p className="text-base sm:text-lg font-semibold text-cyan-300">Custos Fixos</p>
@@ -295,7 +264,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Card grande com gráfico de linha */}
       <Card className="bg-card/50 border border-purple-500/20 transition-all duration-200 hover:border-purple-400/70 hover:bg-purple-500/5 hover:shadow-[0_0_22px_rgba(168,85,247,0.25)]">
         <CardHeader>
           <CardTitle className="text-cyan-300">Evolução dos Custos (últimos 30 dias)</CardTitle>
@@ -334,7 +302,6 @@ export default function Dashboard() {
         </CardContent>
       </Card>
 
-      {/* Header: botão à esquerda + toggle à direita */}
       <div className="flex items-center justify-between gap-2">
         <Dialog open={isCostDialogOpen} onOpenChange={setIsCostDialogOpen}>
           <DialogTrigger asChild>
@@ -430,7 +397,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Seções */}
       <CostForm
         title="Custos Fixos"
         costs={fixedCosts}
@@ -488,19 +454,16 @@ export default function Dashboard() {
 
       <div aria-hidden="true" className="shrink-0" style={{ width: "var(--ntoh-sidebar-width, 80px)" }} />
 
-      <main className="flex-1 h-screen overflow-y-auto py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6 xl:px-8 2xl:px-10">
-        <div className="w-full max-w-[1200px] 2xl:max-w-[1320px]">
+      <main className="flex-1 min-h-screen overflow-y-auto py-6 px-4 sm:px-6 lg:px-8 min-w-0">
+        <div className="w-full max-w-[1440px] 2xl:max-w-[1600px] mx-auto">
           {activeModule === "billing" && renderBilling()}
           {activeModule === "sales" && renderSales()}
           {activeModule === "stock" && renderStock()}
           {activeModule === "costs" && renderCosts()}
           {activeModule === "devolutions" && renderDevolutions()}
 
-          {/* Fallback: se módulo não reconhecido, mostra mensagem */}
           {!["billing", "sales", "stock", "costs", "devolutions"].includes(activeModule) && (
-            <div className="text-sm text-muted-foreground">
-              Módulo não encontrado: {activeModule}
-            </div>
+            <div className="text-sm text-muted-foreground">Módulo não encontrado: {activeModule}</div>
           )}
         </div>
       </main>
