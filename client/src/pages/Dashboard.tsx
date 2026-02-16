@@ -29,7 +29,8 @@ type NewCostFormState = {
 type CostHistoryPoint = { date: string; total: number };
 
 export default function Dashboard() {
-  const [activeModule, setActiveModule] = useState("billing"); // Módulo de faturamento no topo
+  // ✅ Default mudado para "sales" (abre na Central de Vendas)
+  const [activeModule, setActiveModule] = useState("sales");
 
   // Custos
   const [fixedCosts, setFixedCosts] = useState<CostItem[]>([]);

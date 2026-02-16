@@ -68,16 +68,18 @@ export function Sidebar({ activeModule, onModuleChange, onLogout }: SidebarProps
 
   const modules: SidebarModule[] = useMemo(
     () => [
-      { id: "billing", label: "Faturamento", icon: BarChart3, description: "Integração Shopee e análise de vendas", order: 10 },
-      { id: "sales", label: "Central de Vendas", icon: TrendingUp, description: "Acompanhe pedidos e status", order: 15 },
-      { id: "stock", label: "Estoque", icon: Package, description: "Gerenciar inventário", order: 20 },
-      { id: "costs", label: "Custos", icon: DollarSign, description: "Controlar custos fixos e variáveis", order: 30 },
-      { id: "devolutions", label: "Devoluções", icon: ShoppingCart, description: "Rastrear devoluções de clientes", order: 40 },
+      // ✅ Central de Vendas como primeiro item
+      { id: "sales", label: "Central de Vendas", icon: TrendingUp, description: "Acompanhe pedidos e status", order: 10 },
+
+      { id: "billing", label: "Faturamento", icon: BarChart3, description: "Integração Shopee e análise de vendas", order: 20 },
+      { id: "stock", label: "Estoque", icon: Package, description: "Gerenciar inventário", order: 30 },
+      { id: "costs", label: "Custos", icon: DollarSign, description: "Controlar custos fixos e variáveis", order: 40 },
+      { id: "devolutions", label: "Devoluções", icon: ShoppingCart, description: "Rastrear devoluções de clientes", order: 50 },
     ],
     []
   );
 
-  const sortedModules = useMemo(() => [...modules].sort((a, b) => a.order - b.order), [modules]);
+  const sortedModules = modules;
 
   const userName = getUserName();
   const userEmail = getUserEmail();
@@ -170,7 +172,7 @@ export function Sidebar({ activeModule, onModuleChange, onLogout }: SidebarProps
 
               {!collapsed && (
                 <div className="min-w-0">
-                  <h1 className="text-sm font-bold text-sidebar-foreground truncate">NTOH</h1>
+                  <h1 className="text-sm font-bold text-sidebar-foreground truncate">NTOH BUSINESS</h1>
                   <p className="text-xs text-sidebar-foreground/60 truncate">Automação</p>
                 </div>
               )}
