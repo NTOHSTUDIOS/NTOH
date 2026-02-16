@@ -1,38 +1,67 @@
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Trash2, Copy, Edit2, ArrowRight, CheckCircle } from "lucide-react";
-import { toast } from "sonner";
+// client/src/components/ReturnForm.tsx
+import { useMemo, useState } from "react";
+import { format, isWithinInterval, startOfDay, endOfDay, subDays, subMonths, subYears } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import type { DateRange } from "react-day-picker";
 
-export interface Return {
+import { toast } from "sonner";
+import { CalendarDays, CheckCircle2, Copy, Package, Plus, Search, Trash2, ArrowRight } from "lucide-react";
+
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+
+// ===== Tipos =====
+export type Return = {
   id: string;
   name: string;
   sku: string;
-  color?: string;
-  size?: string;
+  color: string;
+  size: string;
   cost: number;
   quantity: number;
   status: "pending" | "processing" | "completed";
   reason?: string;
-  createdAt: string; // ISO string
-}
+  createdAt: string;
+};
+
+type PeriodPreset = "24H" | "7D" | "30D" | "3M" | "6M" | "12M" | "CUSTOM";
+type KpiFilter = "ALL" | "PENDING" | "PROCESSING" | "COMPLETED";
 
 interface ReturnFormProps {
-  onAddReturn: (returnItem: Return) => void;
-  onEditReturn: (returnItem: Return) => void;
+  returns: Return[];
+  onAddReturn: (item: Return) => void;
+  onEditReturn: (item: Return) => void;
   onDeleteReturn: (id: string) => void;
-  onDuplicateReturn: (returnItem: Return) => void;
+  onDuplicateReturn: (item: Return) => void;
   onMoveToProcessing: (id: string) => void;
   onMoveToCompleted: (id: string) => void;
-  onAddToStock: (returnItem: Return) => void;
-  returns: Return[];
+  onAddToStock: (item: Return) => void;
 }
 
+// ===== Helpers (copiados/adaptados do Billing) =====
+function formatRangeLabel(range?: DateRange) {
+  const from = range?.from;
+  const to = range?.to;
+
+  if (!from && !to) return "Selecione um período";
+  if (from && !to) return `${format(from, "dd/MM/yyyy", { locale: ptBR })} → ...`;
+  if (!from && to) return `... → ${format(to, "dd/MM/yyyy", { locale: ptBR })}`;
+  return `${format(from!, "dd/MM/yyyy", { locale: ptBR })} → ${format(to!, "dd/MM/yyyy", { locale: ptBR })}`;
+}
+
+const FILTER_BTN_SELECTED = "bg-sidebar-primary text-sidebar-primary-foreground shadow-lg shadow-purple-500/20";
+const FILTER_BTN_DEFAULT = "bg-muted/50 text-foreground hover:bg-muted border border-transparent";
+
+const cardClass =
+  "bg-card/50 border border-purple-500/20 transition-all duration-200 hover:border-purple-400/70 hover:bg-purple-500/5 hover:shadow-[0_0_22px_rgba(168,85,247,0.25)]";
+
+// ===== Componente =====
 export function ReturnForm({
+  returns,
   onAddReturn,
   onEditReturn,
   onDeleteReturn,
@@ -40,443 +69,413 @@ export function ReturnForm({
   onMoveToProcessing,
   onMoveToCompleted,
   onAddToStock,
-  returns,
 }: ReturnFormProps) {
-  const [open, setOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  // Filtro de período (igual Billing)
+  const [preset, setPreset] = useState<PeriodPreset>("30D");
+  const [customDialogOpen, setCustomDialogOpen] = useState(false);
+  const [draftRange, setDraftRange] = useState<DateRange | undefined>(undefined);
+  const [appliedRange, setAppliedRange] = useState<DateRange | undefined>(undefined);
 
-  // Filtro de datas (YYYY-MM-DD)
-  const [startDate, setStartDate] = useState<string>("");
-  const [endDate, setEndDate] = useState<string>("");
+  // Busca
+  const [searchTerm, setSearchTerm] = useState("");
 
-  const [formData, setFormData] = useState<Omit<Return, "id">>({
-    name: "",
-    sku: "",
-    color: "",
-    size: "",
-    cost: 0,
-    quantity: 0,
-    status: "pending",
-    reason: "",
-    createdAt: new Date().toISOString(),
-  });
+  // KPI filter (todos clicáveis)
+  const [kpiFilter, setKpiFilter] = useState<KpiFilter>("ALL");
 
-  const resetForm = () => {
-    setFormData({
-      name: "",
-      sku: "",
-      color: "",
-      size: "",
-      cost: 0,
-      quantity: 0,
-      status: "pending",
-      reason: "",
-      createdAt: new Date().toISOString(),
+  const toggleKpiFilter = (next: KpiFilter) => {
+    setKpiFilter((prev) => (prev === next ? "ALL" : next));
+  };
+
+  // Apenas para UI
+  const hasFullDraftRange = Boolean(draftRange?.from && draftRange?.to);
+
+  // Lista filtrada: data + busca + KPI
+  const filteredReturns = useMemo(() => {
+    const now = new Date();
+
+    return returns.filter((item) => {
+      // 1) filtro data
+      const itemDate = new Date(item.createdAt);
+      let inDateRange = true;
+
+      if (preset === "24H") inDateRange = itemDate >= subDays(now, 1);
+      if (preset === "7D") inDateRange = itemDate >= subDays(now, 7);
+      if (preset === "30D") inDateRange = itemDate >= subDays(now, 30);
+      if (preset === "3M") inDateRange = itemDate >= subMonths(now, 3);
+      if (preset === "6M") inDateRange = itemDate >= subMonths(now, 6);
+      if (preset === "12M") inDateRange = itemDate >= subYears(now, 1);
+
+      if (preset === "CUSTOM") {
+        const from = appliedRange?.from;
+        const to = appliedRange?.to;
+        if (!from || !to) inDateRange = true;
+        else {
+          inDateRange = isWithinInterval(itemDate, {
+            start: startOfDay(from),
+            end: endOfDay(to),
+          });
+        }
+      }
+
+      // 2) filtro busca
+      const q = searchTerm.trim().toLowerCase();
+      const matchesSearch =
+        q.length === 0 ||
+        item.name.toLowerCase().includes(q) ||
+        item.sku.toLowerCase().includes(q);
+
+      // 3) filtro KPI (status)
+      let matchesKpi = true;
+      if (kpiFilter === "PENDING") matchesKpi = item.status === "pending";
+      if (kpiFilter === "PROCESSING") matchesKpi = item.status === "processing";
+      if (kpiFilter === "COMPLETED") matchesKpi = item.status === "completed";
+
+      return inDateRange && matchesSearch && matchesKpi;
     });
-    setEditingId(null);
-  };
+  }, [returns, preset, appliedRange, searchTerm, kpiFilter]);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  // KPIs (baseados na lista filtrada por data + busca; sem depender do filtro KPI)
+  const kpis = useMemo(() => {
+    const base = returns.filter((item) => {
+      // aplica somente data + busca para os KPIs, pra não “sumirem” quando clicar
+      const now = new Date();
+      const itemDate = new Date(item.createdAt);
 
-    if (!formData.name.trim() || !formData.sku.trim()) {
-      toast.error("Nome e SKU são obrigatórios");
-      return;
-    }
+      let inDateRange = true;
 
-    if (editingId) {
-      onEditReturn({ ...formData, id: editingId });
-      toast.success("Devolução atualizada");
-    } else {
-      onAddReturn({
-        ...formData,
-        id: Date.now().toString(),
-        createdAt: new Date().toISOString(),
-      });
-      toast.success("Devolução adicionada");
-    }
+      if (preset === "24H") inDateRange = itemDate >= subDays(now, 1);
+      if (preset === "7D") inDateRange = itemDate >= subDays(now, 7);
+      if (preset === "30D") inDateRange = itemDate >= subDays(now, 30);
+      if (preset === "3M") inDateRange = itemDate >= subMonths(now, 3);
+      if (preset === "6M") inDateRange = itemDate >= subMonths(now, 6);
+      if (preset === "12M") inDateRange = itemDate >= subYears(now, 1);
 
-    resetForm();
-    setOpen(false);
-  };
+      if (preset === "CUSTOM") {
+        const from = appliedRange?.from;
+        const to = appliedRange?.to;
+        if (!from || !to) inDateRange = true;
+        else {
+          inDateRange = isWithinInterval(itemDate, {
+            start: startOfDay(from),
+            end: endOfDay(to),
+          });
+        }
+      }
 
-  const handleEdit = (returnItem: Return) => {
-    const { id, ...rest } = returnItem;
-    setFormData(rest);
-    setEditingId(id);
-    setOpen(true);
-  };
+      const q = searchTerm.trim().toLowerCase();
+      const matchesSearch =
+        q.length === 0 ||
+        item.name.toLowerCase().includes(q) ||
+        item.sku.toLowerCase().includes(q);
 
-  // Helpers: comparar por dia no horário local (evita bug de fuso)
-  const toDayKey = (iso: string) => {
-    const d = new Date(iso);
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    return `${y}-${m}-${day}`;
-  };
+      return inDateRange && matchesSearch;
+    });
 
-  const inDateRange = (createdAtIso: string) => {
-    const dayKey = toDayKey(createdAtIso);
-    if (startDate && dayKey < startDate) return false;
-    if (endDate && dayKey > endDate) return false;
-    return true;
-  };
+    const pendingCount = base.filter((r) => r.status === "pending").length;
+    const processingCount = base.filter((r) => r.status === "processing").length;
+    const completedCount = base.filter((r) => r.status === "completed").length;
 
-  const filteredReturns = returns.filter((r) => inDateRange(r.createdAt));
+    const totalQty = base.reduce((sum, r) => sum + r.quantity, 0);
+    const totalValue = base.reduce((sum, r) => sum + r.cost * r.quantity, 0);
 
-  const pendingReturns = filteredReturns.filter((r) => r.status === "pending");
-  const processingReturns = filteredReturns.filter((r) => r.status === "processing");
-  const completedReturns = filteredReturns.filter((r) => r.status === "completed");
+    return { pendingCount, processingCount, completedCount, totalQty, totalValue };
+  }, [returns, preset, appliedRange, searchTerm]);
 
-  const ReturnCard = ({ returnItem }: { returnItem: Return }) => (
-    <Card className="bg-card/50 border-purple-500/20 hover:border-purple-500/50 transition-all">
-      <CardContent className="pt-4 space-y-2">
-        <div>
-          <p className="font-medium text-foreground">{returnItem.name}</p>
-          <p className="text-xs text-muted-foreground">SKU: {returnItem.sku}</p>
-          <p className="text-xs text-muted-foreground">Data: {toDayKey(returnItem.createdAt)}</p>
-        </div>
-
-        {(returnItem.color || returnItem.size) && (
-          <p className="text-xs text-muted-foreground">
-            {returnItem.color && `Cor: ${returnItem.color}`}
-            {returnItem.color && returnItem.size && " | "}
-            {returnItem.size && `Tam: ${returnItem.size}`}
-          </p>
-        )}
-
-        {returnItem.reason && <p className="text-xs text-yellow-400">Motivo: {returnItem.reason}</p>}
-
-        <div className="flex justify-between items-center pt-2 border-t border-border">
-          <div>
-            <p className="text-xs text-muted-foreground">Qtd: {returnItem.quantity}</p>
-            <p className="text-sm font-semibold text-cyan-300">
-              R$ {(returnItem.cost * returnItem.quantity).toFixed(2)}
-            </p>
-          </div>
-
-          <div className="flex gap-1 flex-wrap justify-end">
-            {returnItem.status === "pending" && (
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => {
-                  onMoveToProcessing(returnItem.id);
-                  toast.success("Movido para processamento");
-                }}
-                className="text-blue-400 hover:bg-blue-500/20 h-8 px-2"
-              >
-                <ArrowRight className="w-3 h-3 mr-1" />
-                Processar
-              </Button>
-            )}
-
-            {returnItem.status === "processing" && (
-              <>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => {
-                    onMoveToCompleted(returnItem.id);
-                    toast.success("Devolução concluída");
-                  }}
-                  className="text-green-400 hover:bg-green-500/20 h-8 px-2"
-                >
-                  <CheckCircle className="w-3 h-3 mr-1" />
-                  Concluir
-                </Button>
-
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => {
-                    onAddToStock(returnItem);
-                    toast.success("Produto adicionado ao estoque");
-                  }}
-                  className="text-purple-400 hover:bg-purple-500/20 h-8 px-2"
-                >
-                  + Estoque
-                </Button>
-              </>
-            )}
-
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => handleEdit(returnItem)}
-              className="text-purple-400 hover:bg-purple-500/20 h-8 w-8 p-0"
-              title="Editar"
-            >
-              <Edit2 className="w-3 h-3" />
-            </Button>
-
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => onDuplicateReturn(returnItem)}
-              className="text-purple-400 hover:bg-purple-500/20 h-8 w-8 p-0"
-              title="Duplicar"
-            >
-              <Copy className="w-3 h-3" />
-            </Button>
-
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => {
-                onDeleteReturn(returnItem.id);
-                toast.success("Devolução removida");
-              }}
-              className="text-red-400 hover:bg-red-500/20 h-8 w-8 p-0"
-              title="Excluir"
-            >
-              <Trash2 className="w-3 h-3" />
-            </Button>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
+  const activeKpiLabel =
+    kpiFilter === "ALL"
+      ? ""
+      : kpiFilter === "PENDING"
+        ? "Itens devolvidos (pacote chegou)"
+        : kpiFilter === "PROCESSING"
+          ? "Em processamento"
+          : "Concluídas (prontas p/ estoque)";
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center">
-        <div>
-          <h3 className="text-lg font-semibold text-cyan-300">Devoluções</h3>
-          <p className="text-sm text-muted-foreground">Rastreamento de devoluções de clientes</p>
+    <div className="space-y-6">
+      {/* Barra de filtros (mesmo padrão do Billing) */}
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex items-center gap-3">
+          <h2 className="text-lg font-semibold text-foreground">Devoluções</h2>
+          <span className="text-xs text-muted-foreground">
+            Atualizado em: {new Date().toLocaleDateString("pt-BR")} às{" "}
+            {new Date().toLocaleTimeString("pt-BR").slice(0, 5)}
+          </span>
         </div>
 
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
+        <div className="flex flex-wrap items-center gap-2">
+          {(["24H", "7D", "30D", "3M", "6M", "12M"] as const).map((p) => (
             <Button
+              key={p}
+              type="button"
+              variant="secondary"
+              onClick={() => setPreset(p)}
+              className={preset === p ? FILTER_BTN_SELECTED : FILTER_BTN_DEFAULT}
               size="sm"
-              className="bg-purple-600 hover:bg-purple-700 text-white"
-              onClick={() => {
-                resetForm();
-              }}
             >
-              <Plus className="w-4 h-4 mr-2" />
-              Nova Devolução
+              {p}
             </Button>
-          </DialogTrigger>
+          ))}
 
-          <DialogContent className="bg-card border-border">
-            <DialogHeader>
-              <DialogTitle className="text-cyan-300">{editingId ? "Editar" : "Nova"} Devolução</DialogTitle>
-            </DialogHeader>
+          <Dialog
+            open={customDialogOpen}
+            onOpenChange={(open) => {
+              setCustomDialogOpen(open);
+              if (open) {
+                setPreset("CUSTOM");
+                setDraftRange(appliedRange);
+              }
+            }}
+          >
+            <DialogTrigger asChild>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                className={preset === "CUSTOM" ? FILTER_BTN_SELECTED : FILTER_BTN_DEFAULT}
+                onClick={() => setPreset("CUSTOM")}
+              >
+                <CalendarDays className="w-4 h-4 mr-2" />
+                Personalizar
+              </Button>
+            </DialogTrigger>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="name" className="text-foreground">
-                    Nome
-                  </Label>
-                  <Input
-                    id="name"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="Nome do produto"
-                    className="bg-input border-border text-foreground"
-                  />
-                </div>
+            <DialogContent className="sm:max-w-xl bg-card/95 border-purple-500/30 backdrop-blur">
+              <DialogHeader>
+                <DialogTitle className="text-cyan-300">Selecionar período</DialogTitle>
+              </DialogHeader>
 
-                <div>
-                  <Label htmlFor="sku" className="text-foreground">
-                    SKU
-                  </Label>
-                  <Input
-                    id="sku"
-                    value={formData.sku}
-                    onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
-                    placeholder="SKU"
-                    className="bg-input border-border text-foreground"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="color" className="text-foreground">
-                    Cor
-                  </Label>
-                  <Input
-                    id="color"
-                    value={formData.color || ""}
-                    onChange={(e) => setFormData({ ...formData, color: e.target.value })}
-                    placeholder="Cor"
-                    className="bg-input border-border text-foreground"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="size" className="text-foreground">
-                    Tamanho
-                  </Label>
-                  <Input
-                    id="size"
-                    value={formData.size || ""}
-                    onChange={(e) => setFormData({ ...formData, size: e.target.value })}
-                    placeholder="Tamanho"
-                    className="bg-input border-border text-foreground"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="cost" className="text-foreground">
-                    Custo (R$)
-                  </Label>
-                  <Input
-                    id="cost"
-                    type="number"
-                    step="0.01"
-                    value={formData.cost}
-                    onChange={(e) => setFormData({ ...formData, cost: parseFloat(e.target.value) || 0 })}
-                    placeholder="0.00"
-                    className="bg-input border-border text-foreground"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="quantity" className="text-foreground">
-                    Quantidade
-                  </Label>
-                  <Input
-                    id="quantity"
-                    type="number"
-                    value={formData.quantity}
-                    onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value) || 0 })}
-                    placeholder="0"
-                    className="bg-input border-border text-foreground"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <Label htmlFor="reason" className="text-foreground">
-                  Motivo da Devolução
-                </Label>
-                <Input
-                  id="reason"
-                  value={formData.reason || ""}
-                  onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
-                  placeholder="Defeito, tamanho incorreto..."
-                  className="bg-input border-border text-foreground"
+              <div className="rounded-xl border border-purple-500/20 bg-card/50 p-3">
+                <p className="text-sm text-muted-foreground mb-2">{formatRangeLabel(draftRange)}</p>
+                <Calendar
+                  mode="range"
+                  selected={draftRange}
+                  onSelect={setDraftRange}
+                  numberOfMonths={2}
+                  locale={ptBR}
+                  initialFocus
                 />
               </div>
 
-              <div className="flex gap-2">
-                <Button type="submit" className="flex-1 bg-purple-600 hover:bg-purple-700">
-                  {editingId ? "Atualizar" : "Adicionar"}
+              <div className="flex flex-col-reverse sm:flex-row sm:justify-between gap-2 pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="border-sidebar-border hover:bg-sidebar-accent/20"
+                  onClick={() => setDraftRange(undefined)}
+                >
+                  Limpar
                 </Button>
-                <Button type="button" variant="outline" onClick={() => setOpen(false)} className="flex-1">
-                  Cancelar
-                </Button>
+
+                <div className="flex gap-2 sm:justify-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="border-sidebar-border hover:bg-sidebar-accent/20"
+                    onClick={() => setCustomDialogOpen(false)}
+                  >
+                    Cancelar
+                  </Button>
+
+                  <Button
+                    type="button"
+                    className="bg-emerald-600 hover:bg-emerald-600/90"
+                    disabled={!hasFullDraftRange}
+                    onClick={() => {
+                      setAppliedRange(draftRange);
+                      setPreset("CUSTOM");
+                      setCustomDialogOpen(false);
+                    }}
+                  >
+                    Filtrar
+                  </Button>
+                </div>
               </div>
-            </form>
-          </DialogContent>
-        </Dialog>
+            </DialogContent>
+          </Dialog>
+
+          <Button
+            type="button"
+            size="sm"
+            className={`${FILTER_BTN_SELECTED} px-3`}
+            onClick={() => toast.info("Abrir modal de nova devolução (ligar no seu formulário)")}
+          >
+            <Plus className="w-4 h-4" />
+          </Button>
+        </div>
       </div>
 
-      {/* Filtro por datas */}
-      <Card className="bg-card/50 border-border">
-        <CardContent className="pt-4">
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
-            <div>
-              <Label htmlFor="startDate" className="text-foreground">
-                De
-              </Label>
-              <Input
-                id="startDate"
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="bg-input border-border text-foreground"
-              />
-            </div>
+      {/* KPIs (3 cards, todos clicáveis) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {/* Itens devolvidos (pending) */}
+        <button type="button" onClick={() => toggleKpiFilter("PENDING")} className="text-left cursor-pointer">
+          <Card className={`${cardClass} ${kpiFilter === "PENDING" ? "ring-2 ring-cyan-400/50" : ""}`}>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Itens Devolvidos
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl font-bold text-cyan-300">{kpis.pendingCount}</p>
+              <p className="mt-1 text-xs text-muted-foreground">Clique para ver itens no pacote</p>
+            </CardContent>
+          </Card>
+        </button>
 
-            <div>
-              <Label htmlFor="endDate" className="text-foreground">
-                Até
-              </Label>
-              <Input
-                id="endDate"
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="bg-input border-border text-foreground"
-              />
-            </div>
+        {/* Em processamento */}
+        <button type="button" onClick={() => toggleKpiFilter("PROCESSING")} className="text-left cursor-pointer">
+          <Card className={`${cardClass} ${kpiFilter === "PROCESSING" ? "ring-2 ring-cyan-400/50" : ""}`}>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Em processamento
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl font-bold text-cyan-300">{kpis.processingCount}</p>
+              <p className="mt-1 text-xs text-muted-foreground">Clique para verificar</p>
+            </CardContent>
+          </Card>
+        </button>
 
-            <div className="sm:col-span-2 flex gap-2 items-center">
-              <Button
-                type="button"
-                variant="outline"
-                className="border-sidebar-border hover:bg-sidebar-accent/20"
-                onClick={() => {
-                  setStartDate("");
-                  setEndDate("");
-                  toast.info("Filtro limpo");
-                }}
-              >
-                Limpar filtro
-              </Button>
+        {/* Processadas */}
+        <button type="button" onClick={() => toggleKpiFilter("COMPLETED")} className="text-left cursor-pointer">
+          <Card className={`${cardClass} ${kpiFilter === "COMPLETED" ? "ring-2 ring-cyan-400/50" : ""}`}>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Processadas
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl font-bold text-emerald-400">{kpis.completedCount}</p>
+              <p className="mt-1 text-xs text-muted-foreground">Clique para ver prontas</p>
+            </CardContent>
+          </Card>
+        </button>
+      </div>
 
-              <div className="text-sm text-muted-foreground">
-                Mostrando {filteredReturns.length} de {returns.length}
-              </div>
-            </div>
+      {/* Filtro KPI ativo */}
+      {kpiFilter !== "ALL" && (
+        <div className="flex items-center justify-between rounded-lg border border-purple-500/20 bg-card/50 px-3 py-2">
+          <p className="text-sm text-muted-foreground">
+            Filtro ativo: <span className="text-cyan-300 font-medium">{activeKpiLabel}</span>
+          </p>
+
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="border-sidebar-border hover:bg-sidebar-accent/20"
+            onClick={() => setKpiFilter("ALL")}
+          >
+            Limpar
+          </Button>
+        </div>
+      )}
+
+      {/* Busca */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <Input
+          placeholder="Buscar por nome ou SKU..."
+          className="pl-10 bg-card/50 border-purple-500/20"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+      </div>
+
+      {/* Lista */}
+      <div className="grid grid-cols-1 gap-4">
+        {filteredReturns.length === 0 ? (
+          <div className="text-center py-12 border-2 border-dashed border-muted rounded-xl">
+            <Package className="w-12 h-12 mx-auto text-muted-foreground mb-3 opacity-20" />
+            <p className="text-muted-foreground">Nenhuma devolução encontrada no período.</p>
           </div>
-        </CardContent>
-      </Card>
+        ) : (
+          filteredReturns.map((item) => (
+            <Card key={item.id} className="bg-card/30 border-border/50 hover:border-purple-500/40 transition-colors">
+              <CardContent className="p-4 sm:p-6">
+                <div className="flex flex-col sm:flex-row justify-between gap-4">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-bold text-lg">{item.name}</h3>
 
-      <Tabs defaultValue="pending" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 bg-card border border-border">
-          <TabsTrigger value="pending" className="text-yellow-400">
-            Pendentes ({pendingReturns.length})
-          </TabsTrigger>
-          <TabsTrigger value="processing" className="text-blue-400">
-            Processando ({processingReturns.length})
-          </TabsTrigger>
-          <TabsTrigger value="completed" className="text-green-400">
-            Concluídas ({completedReturns.length})
-          </TabsTrigger>
-        </TabsList>
+                      <Badge
+                        variant="outline"
+                        className={
+                          item.status === "completed"
+                            ? "border-emerald-500/40 text-emerald-400"
+                            : item.status === "processing"
+                              ? "border-cyan-500/40 text-cyan-300"
+                              : "border-amber-500/40 text-amber-400"
+                        }
+                      >
+                        {item.status}
+                      </Badge>
+                    </div>
 
-        <TabsContent value="pending" className="space-y-3">
-          {pendingReturns.length === 0 ? (
-            <Card className="bg-card/50 border-border">
-              <CardContent className="pt-6 text-center text-muted-foreground">Nenhuma devolução pendente</CardContent>
-            </Card>
-          ) : (
-            pendingReturns.map((returnItem) => <ReturnCard key={returnItem.id} returnItem={returnItem} />)
-          )}
-        </TabsContent>
+                    <p className="text-sm text-muted-foreground">
+                      SKU: <span className="text-foreground">{item.sku}</span> | Cor:{" "}
+                      <span className="text-foreground">{item.color}</span> | Tam:{" "}
+                      <span className="text-foreground">{item.size}</span>
+                    </p>
 
-        <TabsContent value="processing" className="space-y-3">
-          {processingReturns.length === 0 ? (
-            <Card className="bg-card/50 border-border">
-              <CardContent className="pt-6 text-center text-muted-foreground">
-                Nenhuma devolução em processamento
+                    <p className="text-xs text-muted-foreground italic">Motivo: {item.reason || "Não informado"}</p>
+
+                    <p className="text-[10px] text-muted-foreground">
+                      Registrado em: {format(new Date(item.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col sm:items-end justify-between gap-4">
+                    <div className="text-right">
+                      <p className="text-sm text-muted-foreground">Valor Unitário</p>
+                      <p className="text-xl font-bold text-cyan-300">R$ {item.cost.toFixed(2)}</p>
+                      <p className="text-xs text-muted-foreground">Qtd: {item.quantity}</p>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2 justify-end">
+                      {item.status === "pending" && (
+                        <Button size="sm" variant="outline" onClick={() => onMoveToProcessing(item.id)} className="text-xs">
+                          <ArrowRight className="w-3 h-3 mr-1" /> Processar
+                        </Button>
+                      )}
+
+                      {item.status === "processing" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => onMoveToCompleted(item.id)}
+                          className="text-xs border-emerald-500/50 text-emerald-400"
+                        >
+                          <CheckCircle2 className="w-3 h-3 mr-1" /> Concluir
+                        </Button>
+                      )}
+
+                      {item.status === "completed" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => onAddToStock(item)}
+                          className="text-xs border-cyan-500/50 text-cyan-300"
+                        >
+                          <Plus className="w-3 h-3 mr-1" /> Repor Estoque
+                        </Button>
+                      )}
+
+                      <Button size="sm" variant="ghost" onClick={() => onDuplicateReturn(item)}>
+                        <Copy className="w-4 h-4" />
+                      </Button>
+
+                      <Button size="sm" variant="ghost" onClick={() => onDeleteReturn(item.id)} className="text-destructive">
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
               </CardContent>
             </Card>
-          ) : (
-            processingReturns.map((returnItem) => <ReturnCard key={returnItem.id} returnItem={returnItem} />)
-          )}
-        </TabsContent>
-
-        <TabsContent value="completed" className="space-y-3">
-          {completedReturns.length === 0 ? (
-            <Card className="bg-card/50 border-border">
-              <CardContent className="pt-6 text-center text-muted-foreground">Nenhuma devolução concluída</CardContent>
-            </Card>
-          ) : (
-            completedReturns.map((returnItem) => <ReturnCard key={returnItem.id} returnItem={returnItem} />)
-          )}
-        </TabsContent>
-      </Tabs>
+          ))
+        )}
+      </div>
     </div>
   );
 }
