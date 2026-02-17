@@ -3,18 +3,6 @@ import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import {
-  ResponsiveContainer,
-  LineChart,
-  Line,
-  CartesianGrid,
-  XAxis,
-  YAxis,
-  Tooltip,
-  Legend,
-  BarChart,
-  Bar,
-} from "recharts";
 
 type OrderStatus = "pending" | "processing" | "shipped" | "returned";
 
@@ -153,68 +141,29 @@ export default function SalesCentral() {
     };
   }, [orders, todayKey]);
 
-  // Série por hora
-  const hourlySeries = useMemo(() => {
-    const hours = Array.from({ length: 13 }, (_, i) => 8 + i);
-    const base = hours.map((h) => ({
-      hour: `${String(h).padStart(2, "0")}:00`,
-      vendas: 0,
-      lucro: 0,
-    }));
-
-    const todayOrders = orders.filter((o) => toDayKey(o.createdAt) === todayKey && o.status !== "returned");
-
-    for (const o of todayOrders) {
-      const d = new Date(o.createdAt);
-      const h = d.getHours();
-      const idx = hours.indexOf(h);
-      if (idx >= 0) {
-        base[idx].vendas += o.total;
-        base[idx].lucro += o.total - o.cost;
-      }
-    }
-
-    let accSales = 0;
-    let accProfit = 0;
-    return base.map((p) => {
-      accSales += p.vendas;
-      accProfit += p.lucro;
-      return { ...p, vendas: Number(accSales.toFixed(2)), lucro: Number(accProfit.toFixed(2)) };
-    });
-  }, [orders, todayKey]);
-
-  const statusBarData = useMemo(() => {
-    return [
-      { name: "Pendentes", value: stats.pending },
-      { name: "Em andamento", value: stats.processing },
-      { name: "Enviados", value: stats.shipped },
-      { name: "Devoluções", value: stats.returned },
-    ];
-  }, [stats]);
-
   const pendingOrders = useMemo(() => orders.filter((o) => o.status === "pending"), [orders]);
   const processingOrders = useMemo(() => orders.filter((o) => o.status === "processing"), [orders]);
   const shippedOrders = useMemo(() => orders.filter((o) => o.status === "shipped"), [orders]);
 
-  // ✅ Estilo KPI igual ao Estoque
+  // Estilo KPI igual ao Estoque
   const kpiCardClass =
     "bg-card/50 border border-primary/20 transition-all duration-200 hover:border-primary/70 glow-blue-hover min-w-0";
   const kpiTitleClass = "text-sm text-white";
   const kpiValueBase = "text-3xl font-bold leading-none";
 
-  // ✅ Regras de cor
+  // Regras de cor
   const pendingValueClass = "text-yellow-400";
   const processingValueClass = "text-white";
   const shippedValueClass = "text-emerald-400";
 
   const netProfitTodayClass = stats.netProfitToday < 0 ? "text-red-400" : "text-emerald-400";
 
-  // ✅ NOVA regra: devoluções = branco quando 0, vermelho quando > 0
+  // devoluções = branco quando 0, vermelho quando > 0
   const returnedValueClass = stats.returned === 0 ? "text-white" : "text-red-400";
 
   return (
     <div className="space-y-5 overflow-x-hidden min-w-0">
-      {/* KPIs (estilo Estoque): 3 em cima + 3 embaixo */}
+      {/* KPIs (3 em cima + 3 embaixo) */}
       <div className="space-y-3">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           <Card className={kpiCardClass}>
@@ -273,54 +222,6 @@ export default function SalesCentral() {
             </CardContent>
           </Card>
         </div>
-      </div>
-
-      {/* Gráficos */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card className="bg-card/50 border-primary/20 glow-blue-hover min-w-0">
-          <CardHeader className="py-4">
-            <CardTitle className="text-primary">Desempenho do dia (acumulado)</CardTitle>
-          </CardHeader>
-          <CardContent className="min-w-0">
-            <ResponsiveContainer width="100%" height={280}>
-              <LineChart data={hourlySeries}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                <XAxis dataKey="hour" stroke="#999" />
-                <YAxis stroke="#999" />
-                <Tooltip
-                  contentStyle={{ backgroundColor: "#1a1a2e", border: "1px solid #333" }}
-                  formatter={(value: any, name: any) =>
-                    name === "vendas" || name === "lucro" ? formatBRL(Number(value)) : value
-                  }
-                />
-                <Legend />
-                <Line type="monotone" dataKey="vendas" stroke="#06b6d4" strokeWidth={2} dot={false} name="Vendas" />
-                <Line type="monotone" dataKey="lucro" stroke="#2150af" strokeWidth={2} dot={false} name="Lucro" />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-card/50 border-primary/20 glow-blue-hover min-w-0">
-          <CardHeader className="py-4">
-            <CardTitle className="text-primary">Pedidos por status</CardTitle>
-          </CardHeader>
-          <CardContent className="min-w-0">
-            <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={statusBarData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                <XAxis dataKey="name" stroke="#999" interval={0} tick={{ fontSize: 12 }} />
-                <YAxis stroke="#999" allowDecimals={false} />
-                <Tooltip
-                  contentStyle={{ backgroundColor: "#1a1a2e", border: "1px solid #333" }}
-                  formatter={(value: any) => `${Number(value)} pedidos`}
-                />
-                <Legend />
-                <Bar dataKey="value" fill="#2150af" name="Quantidade" />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
       </div>
 
       {/* Filas / Kanban */}
