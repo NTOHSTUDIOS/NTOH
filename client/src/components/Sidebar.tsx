@@ -40,8 +40,8 @@ const SIDEBAR_VAR = "--ntoh-sidebar-width";
 const WIDTH_EXPANDED_PX = 224;
 const WIDTH_COLLAPSED_PX = 64;
 
-// logo em: client/public/logo.png
-const LOGO_SRC = "/logo.png";
+// ✅ seu logo atual está em: client/public/logo-v3.png
+const LOGO_SRC = "/logo-v3.png";
 
 /**
  * Glow "LED" mais forte:
@@ -52,7 +52,7 @@ const BRAND_BLUE_RGB = "33,80,175"; // #2150af
 const GLOW_RGB = "80,160,255"; // azul neon mais claro
 
 const GLOW_ACTIVE = `0 0 30px rgba(${GLOW_RGB}, 0.26), 0 0 14px rgba(${BRAND_BLUE_RGB}, 0.15)`;
-const GLOW_HOVER  = `0 0 22px rgba(${GLOW_RGB}, 0.15), 0 0 10px rgba(${BRAND_BLUE_RGB}, 0.08)`;
+const GLOW_HOVER = `0 0 22px rgba(${GLOW_RGB}, 0.15), 0 0 10px rgba(${BRAND_BLUE_RGB}, 0.08)`;
 
 export function Sidebar({ activeModule, onModuleChange, onLogout }: SidebarProps) {
   const [, setLocation] = useLocation();
@@ -65,7 +65,7 @@ export function Sidebar({ activeModule, onModuleChange, onLogout }: SidebarProps
     }
   });
 
-  // ✅ controla glow no hover sem depender de Tailwind class arbitrária
+  // controla glow no hover sem depender de Tailwind class arbitrária
   const [hoveredId, setHoveredId] = useState<ModuleId | null>(null);
 
   useEffect(() => {
@@ -107,7 +107,6 @@ export function Sidebar({ activeModule, onModuleChange, onLogout }: SidebarProps
     setLocation("/");
   };
 
-  // ✅ sem shadow roxo hardcoded
   const activeClasses = "bg-sidebar-primary text-sidebar-primary-foreground shadow-lg";
   const idleClasses = "text-sidebar-foreground hover:bg-sidebar-accent/10";
 
@@ -264,7 +263,9 @@ export function Sidebar({ activeModule, onModuleChange, onLogout }: SidebarProps
           <Button
             variant="outline"
             size={collapsed ? "icon" : "sm"}
-            className={["border-sidebar-border hover:bg-sidebar-accent/20", collapsed ? "w-9 h-9" : "w-full h-9"].join(" ")}
+            className={["border-sidebar-border hover:bg-sidebar-accent/20", collapsed ? "w-9 h-9" : "w-full h-9"].join(
+              " "
+            )}
             onClick={handleLogout}
             title="Sair"
           >
