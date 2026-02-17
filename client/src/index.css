@@ -1,3 +1,4 @@
+/* client/src/index.css */
 @import "tailwindcss";
 @import "tw-animate-css";
 
@@ -43,15 +44,33 @@
 }
 
 :root {
-  --primary: var(--color-purple-600);
-  --primary-foreground: var(--color-purple-50);
-  --sidebar-primary: var(--color-purple-500);
-  --sidebar-primary-foreground: var(--color-purple-50);
-  --chart-1: var(--color-purple-300);
-  --chart-2: var(--color-purple-500);
-  --chart-3: var(--color-purple-600);
-  --chart-4: var(--color-purple-700);
-  --chart-5: var(--color-purple-800);
+  /* ✅ Branding principal (azul #2150af) */
+  --brand-primary: 33 80 175; /* rgb(33, 80, 175) */
+  --brand-primary-foreground: 248 250 252; /* #f8fafc */
+
+  /* ✅ Tokens principais do tema */
+  --primary: rgb(var(--brand-primary));
+  --primary-foreground: rgb(var(--brand-primary-foreground));
+  --sidebar-primary: rgb(var(--brand-primary));
+  --sidebar-primary-foreground: rgb(var(--brand-primary-foreground));
+
+  /* ✅ Accent/Ring também no azul do branding (remove roxo residual) */
+  --accent: rgb(var(--brand-primary) / 0.20);
+  --accent-foreground: rgb(var(--brand-primary-foreground));
+  --ring: rgb(var(--brand-primary) / 0.45);
+
+  /* ✅ Sidebar accent no mesmo azul */
+  --sidebar-accent: rgb(var(--brand-primary) / 0.20);
+  --sidebar-accent-foreground: rgb(var(--brand-primary-foreground));
+  --sidebar-ring: rgb(var(--brand-primary) / 0.45);
+
+  /* ✅ Charts no mesmo azul (tons por alpha) */
+  --chart-1: rgb(var(--brand-primary) / 0.35);
+  --chart-2: rgb(var(--brand-primary) / 0.55);
+  --chart-3: rgb(var(--brand-primary));
+  --chart-4: rgb(var(--brand-primary) / 0.8);
+  --chart-5: rgb(var(--brand-primary) / 0.95);
+
   --radius: 0.65rem;
 
   --background: oklch(0.12 0.01 280);
@@ -64,27 +83,35 @@
   --secondary-foreground: oklch(0.9 0.01 280);
   --muted: oklch(0.3 0.01 280);
   --muted-foreground: oklch(0.7 0.02 280);
-  --accent: oklch(0.65 0.25 280);
-  --accent-foreground: oklch(0.1 0.01 280);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.985 0 0);
   --border: oklch(0.25 0.01 280);
   --input: oklch(0.2 0.01 280);
-  --ring: oklch(0.65 0.25 280);
 
   --sidebar: oklch(0.15 0.01 280);
   --sidebar-foreground: oklch(0.95 0.01 280);
-  --sidebar-accent: oklch(0.65 0.25 280);
-  --sidebar-accent-foreground: oklch(0.1 0.01 280);
   --sidebar-border: oklch(0.25 0.01 280);
-  --sidebar-ring: oklch(0.65 0.25 280);
 }
 
 .dark {
-  --primary: var(--color-purple-600);
-  --primary-foreground: var(--color-purple-50);
-  --sidebar-primary: var(--color-purple-500);
-  --sidebar-primary-foreground: var(--color-purple-50);
+  /* ✅ Mesmo branding no dark */
+  --brand-primary: 33 80 175;
+  --brand-primary-foreground: 248 250 252;
+
+  --primary: rgb(var(--brand-primary));
+  --primary-foreground: rgb(var(--brand-primary-foreground));
+  --sidebar-primary: rgb(var(--brand-primary));
+  --sidebar-primary-foreground: rgb(var(--brand-primary-foreground));
+
+  /* ✅ Accent/Ring também no azul do branding (remove roxo residual) */
+  --accent: rgb(var(--brand-primary) / 0.20);
+  --accent-foreground: rgb(var(--brand-primary-foreground));
+  --ring: rgb(var(--brand-primary) / 0.45);
+
+  /* ✅ Sidebar accent no mesmo azul */
+  --sidebar-accent: rgb(var(--brand-primary) / 0.20);
+  --sidebar-accent-foreground: rgb(var(--brand-primary-foreground));
+  --sidebar-ring: rgb(var(--brand-primary) / 0.45);
 
   --background: oklch(0.12 0.01 280);
   --foreground: oklch(0.95 0.01 280);
@@ -96,26 +123,20 @@
   --secondary-foreground: oklch(0.9 0.01 280);
   --muted: oklch(0.3 0.01 280);
   --muted-foreground: oklch(0.7 0.02 280);
-  --accent: oklch(0.65 0.25 280);
-  --accent-foreground: oklch(0.1 0.01 280);
   --destructive: oklch(0.704 0.191 22.216);
   --destructive-foreground: oklch(0.985 0 0);
   --border: oklch(0.25 0.01 280);
   --input: oklch(0.2 0.01 280);
-  --ring: oklch(0.65 0.25 280);
 
-  --chart-1: var(--color-purple-300);
-  --chart-2: var(--color-purple-500);
-  --chart-3: var(--color-purple-600);
-  --chart-4: var(--color-purple-700);
-  --chart-5: var(--color-purple-800);
+  --chart-1: rgb(var(--brand-primary) / 0.35);
+  --chart-2: rgb(var(--brand-primary) / 0.55);
+  --chart-3: rgb(var(--brand-primary));
+  --chart-4: rgb(var(--brand-primary) / 0.8);
+  --chart-5: rgb(var(--brand-primary) / 0.95);
 
   --sidebar: oklch(0.15 0.01 280);
   --sidebar-foreground: oklch(0.95 0.01 280);
-  --sidebar-accent: oklch(0.65 0.25 280);
-  --sidebar-accent-foreground: oklch(0.1 0.01 280);
   --sidebar-border: oklch(0.25 0.01 280);
-  --sidebar-ring: oklch(0.65 0.25 280);
 }
 
 @layer base {
@@ -169,5 +190,22 @@
       padding-right: 2rem;
       max-width: 1280px; /* Standard content width */
     }
+  }
+}
+
+/* ✅ Glow azul (padrão do projeto) - TURBO (mais brilhoso, igual Billing/Sidebar) */
+@layer utilities {
+  /* Glow azul para itens ativos (mais forte) */
+  .glow-blue-active {
+    box-shadow: 0 0 30px rgba(80, 160, 255, 0.26), 0 0 14px rgba(33, 80, 175, 0.15);
+  }
+
+  /* Glow azul no hover (mais brilhoso) */
+  .glow-blue-hover {
+    transition: all 200ms ease;
+  }
+  .glow-blue-hover:hover {
+    box-shadow: 0 0 26px rgba(80, 160, 255, 0.22), 0 0 12px rgba(33, 80, 175, 0.12);
+    background-color: rgb(var(--brand-primary) / 0.05);
   }
 }

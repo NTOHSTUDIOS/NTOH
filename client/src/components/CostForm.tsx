@@ -44,8 +44,9 @@ export function CostForm({
 
   const totalAmount = useMemo(() => costs.reduce((sum, item) => sum + item.amount, 0), [costs]);
 
+  // ✅ Glow azul no hover (usando a classe utilitária do index.css)
   const costCardClass =
-    "bg-card/50 border border-purple-500/20 transition-all duration-200 hover:border-purple-400/70 hover:bg-purple-500/5 hover:shadow-[0_0_22px_rgba(168,85,247,0.25)]";
+    "bg-card/50 border border-primary/20 transition-all duration-200 hover:border-primary/70 hover:bg-primary/5 glow-blue-hover";
 
   const openEdit = (cost: CostItem) => {
     setEditingId(cost.id);
@@ -84,9 +85,9 @@ export function CostForm({
       {/* Cabeçalho da seção (sem botão adicionar) */}
       <div className="flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center">
         <div>
-          <h3 className="text-lg font-semibold text-cyan-300">{title}</h3>
-          <p className="text-sm text-cyan-200/80">Total</p>
-          <p className="text-3xl sm:text-4xl font-bold text-cyan-300">R$ {totalAmount.toFixed(2)}</p>
+          <h3 className="text-lg font-semibold text-primary">{title}</h3>
+          <p className="text-sm text-primary/80">Total</p>
+          <p className="text-3xl sm:text-4xl font-bold text-primary">R$ {totalAmount.toFixed(2)}</p>
         </div>
       </div>
 
@@ -94,7 +95,7 @@ export function CostForm({
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="bg-card border-border">
           <DialogHeader>
-            <DialogTitle className="text-cyan-300">Editar Custo</DialogTitle>
+            <DialogTitle className="text-primary">Editar Custo</DialogTitle>
           </DialogHeader>
 
           <form onSubmit={submitEdit} className="space-y-4">
@@ -137,7 +138,7 @@ export function CostForm({
             </div>
 
             <div className="flex gap-2">
-              <Button type="submit" className="flex-1 bg-purple-600 hover:bg-purple-700">
+              <Button type="submit" className="flex-1 bg-primary hover:bg-primary/90">
                 <Save className="w-4 h-4 mr-2" />
                 Salvar
               </Button>
@@ -174,7 +175,7 @@ export function CostForm({
                 </div>
 
                 <div className="flex justify-between items-center pt-2 border-t">
-                  <p className="text-sm font-semibold text-cyan-300">R$ {cost.amount.toFixed(2)}</p>
+                  <p className="text-sm font-semibold text-primary">R$ {cost.amount.toFixed(2)}</p>
 
                   <div className="flex gap-1">
                     <Button size="sm" variant="ghost" onClick={() => openEdit(cost)}>
@@ -211,7 +212,7 @@ export function CostForm({
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <p className="text-sm font-semibold text-cyan-300">R$ {cost.amount.toFixed(2)}</p>
+                  <p className="text-sm font-semibold text-primary">R$ {cost.amount.toFixed(2)}</p>
 
                   <div className="flex gap-2">
                     <Button size="sm" variant="ghost" onClick={() => openEdit(cost)}>

@@ -53,11 +53,11 @@ function formatRangeLabel(range?: DateRange) {
   return `${format(from!, "dd/MM/yyyy", { locale: ptBR })} → ${format(to!, "dd/MM/yyyy", { locale: ptBR })}`;
 }
 
-const FILTER_BTN_SELECTED = "bg-sidebar-primary text-sidebar-primary-foreground shadow-lg shadow-purple-500/20";
+const FILTER_BTN_SELECTED = "bg-sidebar-primary text-sidebar-primary-foreground shadow-lg glow-blue-active";
 const FILTER_BTN_DEFAULT = "bg-muted/50 text-foreground hover:bg-muted border border-transparent";
 
 const cardClass =
-  "bg-card/50 border border-purple-500/20 transition-all duration-200 hover:border-purple-400/70 hover:bg-purple-500/5 hover:shadow-[0_0_22px_rgba(168,85,247,0.25)]";
+  "bg-card/50 border border-primary/20 transition-all duration-200 hover:border-primary/70 hover:bg-primary/5 glow-blue-hover";
 
 // ===== Componente =====
 export function ReturnForm({
@@ -239,12 +239,12 @@ export function ReturnForm({
               </Button>
             </DialogTrigger>
 
-            <DialogContent className="sm:max-w-xl bg-card/95 border-purple-500/30 backdrop-blur">
+            <DialogContent className="sm:max-w-xl bg-card/95 border-primary/30 backdrop-blur">
               <DialogHeader>
-                <DialogTitle className="text-cyan-300">Selecionar período</DialogTitle>
+                <DialogTitle className="text-primary">Selecionar período</DialogTitle>
               </DialogHeader>
 
-              <div className="rounded-xl border border-purple-500/20 bg-card/50 p-3">
+              <div className="rounded-xl border border-primary/20 bg-card/50 p-3">
                 <p className="text-sm text-muted-foreground mb-2">{formatRangeLabel(draftRange)}</p>
                 <Calendar
                   mode="range"
@@ -308,14 +308,14 @@ export function ReturnForm({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {/* Itens devolvidos (pending) */}
         <button type="button" onClick={() => toggleKpiFilter("PENDING")} className="text-left cursor-pointer">
-          <Card className={`${cardClass} ${kpiFilter === "PENDING" ? "ring-2 ring-cyan-400/50" : ""}`}>
+          <Card className={`${cardClass} ${kpiFilter === "PENDING" ? "ring-2 ring-primary/50" : ""}`}>
             <CardHeader className="pb-2">
               <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 Itens Devolvidos
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-bold text-cyan-300">{kpis.pendingCount}</p>
+              <p className="text-2xl font-bold text-primary">{kpis.pendingCount}</p>
               <p className="mt-1 text-xs text-muted-foreground">Clique para ver itens no pacote</p>
             </CardContent>
           </Card>
@@ -323,14 +323,14 @@ export function ReturnForm({
 
         {/* Em processamento */}
         <button type="button" onClick={() => toggleKpiFilter("PROCESSING")} className="text-left cursor-pointer">
-          <Card className={`${cardClass} ${kpiFilter === "PROCESSING" ? "ring-2 ring-cyan-400/50" : ""}`}>
+          <Card className={`${cardClass} ${kpiFilter === "PROCESSING" ? "ring-2 ring-primary/50" : ""}`}>
             <CardHeader className="pb-2">
               <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 Em processamento
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-bold text-cyan-300">{kpis.processingCount}</p>
+              <p className="text-2xl font-bold text-primary">{kpis.processingCount}</p>
               <p className="mt-1 text-xs text-muted-foreground">Clique para verificar</p>
             </CardContent>
           </Card>
@@ -338,7 +338,7 @@ export function ReturnForm({
 
         {/* Processadas */}
         <button type="button" onClick={() => toggleKpiFilter("COMPLETED")} className="text-left cursor-pointer">
-          <Card className={`${cardClass} ${kpiFilter === "COMPLETED" ? "ring-2 ring-cyan-400/50" : ""}`}>
+          <Card className={`${cardClass} ${kpiFilter === "COMPLETED" ? "ring-2 ring-primary/50" : ""}`}>
             <CardHeader className="pb-2">
               <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 Processadas
@@ -354,9 +354,9 @@ export function ReturnForm({
 
       {/* Filtro KPI ativo */}
       {kpiFilter !== "ALL" && (
-        <div className="flex items-center justify-between rounded-lg border border-purple-500/20 bg-card/50 px-3 py-2">
+        <div className="flex items-center justify-between rounded-lg border border-primary/20 bg-card/50 px-3 py-2">
           <p className="text-sm text-muted-foreground">
-            Filtro ativo: <span className="text-cyan-300 font-medium">{activeKpiLabel}</span>
+            Filtro ativo: <span className="text-primary font-medium">{activeKpiLabel}</span>
           </p>
 
           <Button
@@ -376,7 +376,7 @@ export function ReturnForm({
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <Input
           placeholder="Buscar por nome ou SKU..."
-          className="pl-10 bg-card/50 border-purple-500/20"
+          className="pl-10 bg-card/50 border-primary/20"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
@@ -391,7 +391,7 @@ export function ReturnForm({
           </div>
         ) : (
           filteredReturns.map((item) => (
-            <Card key={item.id} className="bg-card/30 border-border/50 hover:border-purple-500/40 transition-colors">
+            <Card key={item.id} className="bg-card/30 border-border/50 hover:border-primary/40 transition-colors">
               <CardContent className="p-4 sm:p-6">
                 <div className="flex flex-col sm:flex-row justify-between gap-4">
                   <div className="space-y-1">
@@ -404,7 +404,7 @@ export function ReturnForm({
                           item.status === "completed"
                             ? "border-emerald-500/40 text-emerald-400"
                             : item.status === "processing"
-                              ? "border-cyan-500/40 text-cyan-300"
+                              ? "border-primary/40 text-primary"
                               : "border-amber-500/40 text-amber-400"
                         }
                       >
@@ -428,7 +428,7 @@ export function ReturnForm({
                   <div className="flex flex-col sm:items-end justify-between gap-4">
                     <div className="text-right">
                       <p className="text-sm text-muted-foreground">Valor Unitário</p>
-                      <p className="text-xl font-bold text-cyan-300">R$ {item.cost.toFixed(2)}</p>
+                      <p className="text-xl font-bold text-primary">R$ {item.cost.toFixed(2)}</p>
                       <p className="text-xs text-muted-foreground">Qtd: {item.quantity}</p>
                     </div>
 
@@ -455,7 +455,7 @@ export function ReturnForm({
                           size="sm"
                           variant="outline"
                           onClick={() => onAddToStock(item)}
-                          className="text-xs border-cyan-500/50 text-cyan-300"
+                          className="text-xs border-primary/50 text-primary"
                         >
                           <Plus className="w-3 h-3 mr-1" /> Repor Estoque
                         </Button>

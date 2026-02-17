@@ -40,8 +40,19 @@ const SIDEBAR_VAR = "--ntoh-sidebar-width";
 const WIDTH_EXPANDED_PX = 224;
 const WIDTH_COLLAPSED_PX = 64;
 
-// ✅ como você renomeou para client/public/logo.png
-const LOGO_SRC = "/logo-v3.png";
+// logo em: client/public/logo.png
+const LOGO_SRC = "/logo.png";
+
+/**
+ * Glow "LED" mais forte:
+ * - Mantém o botão no azul do branding (#2150af = 33,80,175)
+ * - Usa um azul mais claro só no brilho (neon)
+ */
+const BRAND_BLUE_RGB = "33,80,175"; // #2150af
+const GLOW_RGB = "80,160,255"; // azul neon mais claro
+
+const GLOW_ACTIVE = `0 0 30px rgba(${GLOW_RGB}, 0.26), 0 0 14px rgba(${BRAND_BLUE_RGB}, 0.15)`;
+const GLOW_HOVER  = `0 0 22px rgba(${GLOW_RGB}, 0.15), 0 0 10px rgba(${BRAND_BLUE_RGB}, 0.08)`;
 
 export function Sidebar({ activeModule, onModuleChange, onLogout }: SidebarProps) {
   const [, setLocation] = useLocation();
@@ -53,6 +64,9 @@ export function Sidebar({ activeModule, onModuleChange, onLogout }: SidebarProps
       return false;
     }
   });
+
+  // ✅ controla glow no hover sem depender de Tailwind class arbitrária
+  const [hoveredId, setHoveredId] = useState<ModuleId | null>(null);
 
   useEffect(() => {
     try {
@@ -93,7 +107,8 @@ export function Sidebar({ activeModule, onModuleChange, onLogout }: SidebarProps
     setLocation("/");
   };
 
-  const activeClasses = "bg-sidebar-primary text-sidebar-primary-foreground shadow-lg shadow-purple-500/20";
+  // ✅ sem shadow roxo hardcoded
+  const activeClasses = "bg-sidebar-primary text-sidebar-primary-foreground shadow-lg";
   const idleClasses = "text-sidebar-foreground hover:bg-sidebar-accent/10";
 
   const renderCollapsedItem = (module: SidebarModule) => {
@@ -105,12 +120,17 @@ export function Sidebar({ activeModule, onModuleChange, onLogout }: SidebarProps
         <TooltipTrigger asChild>
           <button
             onClick={() => onModuleChange(module.id)}
+            onMouseEnter={() => setHoveredId(module.id)}
+            onMouseLeave={() => setHoveredId(null)}
             aria-current={isActive ? "page" : undefined}
+            style={{
+              boxShadow: isActive ? GLOW_ACTIVE : hoveredId === module.id ? GLOW_HOVER : undefined,
+            }}
             className={[
               "flex items-center justify-center",
               "w-8 h-8 rounded-lg shrink-0",
               "transition-colors duration-150",
-              "focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40",
+              "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
               isActive ? activeClasses : idleClasses,
             ].join(" ")}
           >
@@ -133,10 +153,15 @@ export function Sidebar({ activeModule, onModuleChange, onLogout }: SidebarProps
       <button
         key={module.id}
         onClick={() => onModuleChange(module.id)}
+        onMouseEnter={() => setHoveredId(module.id)}
+        onMouseLeave={() => setHoveredId(null)}
         aria-current={isActive ? "page" : undefined}
+        style={{
+          boxShadow: isActive ? GLOW_ACTIVE : hoveredId === module.id ? GLOW_HOVER : undefined,
+        }}
         className={[
           "w-full text-left px-3 py-1.5 rounded-lg transition-all duration-150",
-          "focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40",
+          "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
           isActive ? activeClasses : idleClasses,
         ].join(" ")}
       >
@@ -163,9 +188,14 @@ export function Sidebar({ activeModule, onModuleChange, onLogout }: SidebarProps
         ].join(" ")}
       >
         {/* Header */}
-        <div className={["p-3 sm:p-4 border-b border-sidebar-border flex flex-col", collapsed ? "items-center" : ""].join(" ")}>
+        <div
+          className={[
+            "p-3 sm:p-4 border-b border-sidebar-border flex flex-col",
+            collapsed ? "items-center" : "",
+          ].join(" ")}
+        >
           <div className={["flex items-center w-full", collapsed ? "justify-center" : "justify-between"].join(" ")}>
-            {/* ✅ Logo PNG (substitui N + NTOH BUSINESS) */}
+            {/* Logo PNG */}
             <div className={["flex items-center min-w-0", collapsed ? "justify-center" : ""].join(" ")}>
               <img
                 src={LOGO_SRC}

@@ -101,7 +101,7 @@ export function ProductForm({
     product.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // --- CÁLCULOS DOS KPIs DOS CARDS ---
+  // --- KPIs ---
   const totalCostValue = products.reduce((sum, p) => sum + p.cost * p.quantity, 0);
   const totalUnits = products.reduce((sum, p) => sum + p.quantity, 0);
 
@@ -112,38 +112,56 @@ export function ProductForm({
   const formatBRL = (value: number) =>
     value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
-  // Efeito "LED" (cyan) para os KPIs do topo
-  const kpiCardClass =
-    "bg-card/50 border border-purple-500/20 transition-all duration-200 hover:border-cyan-400/70 hover:shadow-[0_0_24px_rgba(34,211,238,0.35)]";
+  // ✅ Regras de cor (KPI numbers)
+  const getUnitsColorClass = (units: number) => {
+    if (units === 0) return "text-primary";
+    if (units > 20) return "text-emerald-400";
+    return "text-yellow-400";
+  };
 
-  // Efeito hover roxo “brilhoso” para os cards dos produtos
+  const getTotalCostColorClass = (value: number) => {
+    if (value === 0) return "text-primary";
+    if (value >= 1) return "text-emerald-400";
+    return "text-primary";
+  };
+
+  const getDamagedLossColorClass = (value: number) => {
+    if (value < 0) return "text-red-400";
+    return "text-primary"; // <= 0 fica azul (inclui 0)
+  };
+
+  const kpiCardClass =
+    "bg-card/50 border border-primary/20 transition-all duration-200 hover:border-primary/70 glow-blue-hover";
+
   const productCardClass =
-    "bg-card/50 border border-purple-500/20 transition-all duration-200 hover:border-purple-400/70 hover:bg-purple-500/5 hover:shadow-[0_0_22px_rgba(168,85,247,0.25)]";
+    "bg-card/50 border border-primary/20 transition-all duration-200 hover:border-primary/70 hover:bg-primary/5 glow-blue-hover";
 
   return (
     <div className="space-y-4">
-      {/* CARDS NO TOPO (com efeito LED no hover) */}
+      {/* CARDS NO TOPO */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-4">
-        {/* 1) Valor total de custo em estoque */}
+        {/* 1) Custo total em estoque */}
         <Card className={kpiCardClass}>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm text-muted-foreground">Custo total em estoque</CardTitle>
+            <CardTitle className="text-sm text-white">Custo total em estoque</CardTitle>
           </CardHeader>
           <CardContent className="space-y-1">
-            <p className="text-3xl font-bold text-cyan-300">{formatBRL(totalCostValue)}</p>
+            <p className={`text-3xl font-bold ${getTotalCostColorClass(totalCostValue)}`}>
+              {formatBRL(totalCostValue)}
+            </p>
             <p className="text-xs text-muted-foreground">
               Soma de (custo × quantidade) de todos os produtos
             </p>
           </CardContent>
         </Card>
 
-        {/* 2) Quantidade total de unidades em estoque */}
+        {/* 2) Unidades em estoque */}
         <Card className={kpiCardClass}>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm text-muted-foreground">Unidades em estoque</CardTitle>
+            <CardTitle className="text-sm text-white">Unidades em estoque</CardTitle>
           </CardHeader>
           <CardContent className="space-y-1">
-            <p className="text-3xl font-bold text-cyan-300">{totalUnits}</p>
+            <p className={`text-3xl font-bold ${getUnitsColorClass(totalUnits)}`}>{totalUnits}</p>
             <p className="text-xs text-muted-foreground">Total de itens (somando quantidades)</p>
           </CardContent>
         </Card>
@@ -151,10 +169,12 @@ export function ProductForm({
         {/* 3) Prejuízo / peças danificadas */}
         <Card className={kpiCardClass}>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm text-muted-foreground">Prejuízo (danificados)</CardTitle>
+            <CardTitle className="text-sm text-white">Prejuízo (danificados)</CardTitle>
           </CardHeader>
           <CardContent className="space-y-1">
-            <p className="text-3xl font-bold text-cyan-300">{formatBRL(damagedLossValue)}</p>
+            <p className={`text-3xl font-bold ${getDamagedLossColorClass(damagedLossValue)}`}>
+              {formatBRL(damagedLossValue)}
+            </p>
             <p className="text-xs text-muted-foreground">{damagedUnits} peça(s) danificada(s)</p>
           </CardContent>
         </Card>
@@ -163,7 +183,7 @@ export function ProductForm({
       {/* Header */}
       <div className="flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center">
         <div>
-          <h3 className="text-lg font-semibold text-cyan-300">Produtos em Estoque</h3>
+          <h3 className="text-lg font-semibold text-primary">Produtos em Estoque</h3>
           <p className="text-sm text-muted-foreground">
             Total: {products.length} itens | Valor: R$ {totalInventoryValue.toFixed(2)}
           </p>
@@ -173,7 +193,7 @@ export function ProductForm({
           <DialogTrigger asChild>
             <Button
               size="sm"
-              className="bg-purple-600 hover:bg-purple-700 text-white"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground"
               onClick={() => {
                 setEditingId(null);
                 setFormData({
@@ -193,7 +213,9 @@ export function ProductForm({
 
           <DialogContent className="bg-card border-border">
             <DialogHeader>
-              <DialogTitle className="text-cyan-300">{editingId ? "Editar" : "Novo"} Produto</DialogTitle>
+              <DialogTitle className="text-primary">
+                {editingId ? "Editar" : "Novo"} Produto
+              </DialogTitle>
             </DialogHeader>
 
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -246,7 +268,7 @@ export function ProductForm({
               </div>
 
               <div className="flex gap-2">
-                <Button type="submit" className="flex-1 bg-purple-600">
+                <Button type="submit" className="flex-1 bg-primary hover:bg-primary/90">
                   {editingId ? "Atualizar" : "Adicionar"}
                 </Button>
                 <Button type="button" variant="outline" onClick={() => setOpen(false)} className="flex-1">
@@ -298,7 +320,7 @@ export function ProductForm({
                 <div className="flex justify-between items-center pt-2 border-t">
                   <div>
                     <p className="text-white font-medium">Qtd: {product.quantity}</p>
-                    <p className="text-sm font-semibold text-cyan-300">
+                    <p className="text-sm font-semibold text-primary">
                       R$ {(product.cost * product.quantity).toFixed(2)}
                     </p>
                   </div>
@@ -340,7 +362,7 @@ export function ProductForm({
 
                     <span className="text-sm font-medium text-white">Qtd: {product.quantity}</span>
 
-                    <span className="text-sm font-semibold text-cyan-300">
+                    <span className="text-sm font-semibold text-primary">
                       R$ {(product.cost * product.quantity).toFixed(2)}
                     </span>
                   </div>

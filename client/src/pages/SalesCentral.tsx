@@ -49,8 +49,8 @@ const STATUS_LABEL: Record<OrderStatus, string> = {
 
 const STATUS_COLOR: Record<OrderStatus, string> = {
   pending: "text-yellow-400",
-  processing: "text-purple-300",
-  shipped: "text-cyan-300",
+  processing: "text-primary",
+  shipped: "text-primary",
   returned: "text-red-400",
 };
 
@@ -196,70 +196,90 @@ export default function SalesCentral() {
   const processingOrders = useMemo(() => orders.filter((o) => o.status === "processing"), [orders]);
   const shippedOrders = useMemo(() => orders.filter((o) => o.status === "shipped"), [orders]);
 
+  // ✅ Estilo KPI igual ao Estoque
+  const kpiCardClass =
+    "bg-card/50 border border-primary/20 transition-all duration-200 hover:border-primary/70 glow-blue-hover min-w-0";
+  const kpiTitleClass = "text-sm text-white";
+  const kpiValueBase = "text-3xl font-bold leading-none";
+
+  // ✅ Regras de cor
+  const pendingValueClass = "text-yellow-400";
+  const processingValueClass = "text-white";
+  const shippedValueClass = "text-emerald-400";
+
+  const netProfitTodayClass = stats.netProfitToday < 0 ? "text-red-400" : "text-emerald-400";
+
+  // ✅ NOVA regra: devoluções = branco quando 0, vermelho quando > 0
+  const returnedValueClass = stats.returned === 0 ? "text-white" : "text-red-400";
+
   return (
     <div className="space-y-5 overflow-x-hidden min-w-0">
-      {/* KPIs (menores) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
-        <Card className="bg-card/50 border-purple-500/20 min-w-0">
-          <CardHeader className="py-3">
-            <CardTitle className="text-xs text-muted-foreground">Pendentes</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0 pb-4">
-            <p className="text-2xl font-bold leading-none text-cyan-300">{stats.pending}</p>
-          </CardContent>
-        </Card>
+      {/* KPIs (estilo Estoque): 3 em cima + 3 embaixo */}
+      <div className="space-y-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <Card className={kpiCardClass}>
+            <CardHeader className="pb-3">
+              <CardTitle className={kpiTitleClass}>Pendentes</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className={`${kpiValueBase} ${pendingValueClass}`}>{stats.pending}</p>
+            </CardContent>
+          </Card>
 
-        <Card className="bg-card/50 border-purple-500/20 min-w-0">
-          <CardHeader className="py-3">
-            <CardTitle className="text-xs text-muted-foreground">Em andamento</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0 pb-4">
-            <p className="text-2xl font-bold leading-none text-cyan-300">{stats.processing}</p>
-          </CardContent>
-        </Card>
+          <Card className={kpiCardClass}>
+            <CardHeader className="pb-3">
+              <CardTitle className={kpiTitleClass}>Em andamento</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className={`${kpiValueBase} ${processingValueClass}`}>{stats.processing}</p>
+            </CardContent>
+          </Card>
 
-        <Card className="bg-card/50 border-purple-500/20 min-w-0">
-          <CardHeader className="py-3">
-            <CardTitle className="text-xs text-muted-foreground">Enviados</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0 pb-4">
-            <p className="text-2xl font-bold leading-none text-cyan-300">{stats.shipped}</p>
-          </CardContent>
-        </Card>
+          <Card className={kpiCardClass}>
+            <CardHeader className="pb-3">
+              <CardTitle className={kpiTitleClass}>Enviados</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className={`${kpiValueBase} ${shippedValueClass}`}>{stats.shipped}</p>
+            </CardContent>
+          </Card>
+        </div>
 
-        <Card className="bg-card/50 border-purple-500/20 min-w-0">
-          <CardHeader className="py-3">
-            <CardTitle className="text-xs text-muted-foreground">Devoluções</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0 pb-4">
-            <p className="text-2xl font-bold leading-none text-cyan-300">{stats.returned}</p>
-          </CardContent>
-        </Card>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <Card className={kpiCardClass}>
+            <CardHeader className="pb-3">
+              <CardTitle className={kpiTitleClass}>Devoluções</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className={`${kpiValueBase} ${returnedValueClass}`}>{stats.returned}</p>
+            </CardContent>
+          </Card>
 
-        <Card className="bg-card/50 border-purple-500/20 min-w-0">
-          <CardHeader className="py-3">
-            <CardTitle className="text-xs text-muted-foreground">Total vendido hoje</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0 pb-4">
-            <p className="text-2xl font-bold leading-none text-cyan-300 truncate">{formatBRL(stats.soldToday)}</p>
-          </CardContent>
-        </Card>
+          <Card className={kpiCardClass}>
+            <CardHeader className="pb-3">
+              <CardTitle className={kpiTitleClass}>Total vendido hoje</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className={`${kpiValueBase} text-emerald-400 truncate`}>{formatBRL(stats.soldToday)}</p>
+            </CardContent>
+          </Card>
 
-        <Card className="bg-card/50 border-purple-500/20 min-w-0">
-          <CardHeader className="py-3">
-            <CardTitle className="text-xs text-muted-foreground">Lucro líquido hoje</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0 pb-4">
-            <p className="text-2xl font-bold leading-none text-cyan-300 truncate">{formatBRL(stats.netProfitToday)}</p>
-          </CardContent>
-        </Card>
+          <Card className={kpiCardClass}>
+            <CardHeader className="pb-3">
+              <CardTitle className={kpiTitleClass}>Lucro líquido hoje</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className={`${kpiValueBase} ${netProfitTodayClass} truncate`}>{formatBRL(stats.netProfitToday)}</p>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       {/* Gráficos */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card className="bg-card/50 border-purple-500/20 min-w-0">
+        <Card className="bg-card/50 border-primary/20 glow-blue-hover min-w-0">
           <CardHeader className="py-4">
-            <CardTitle className="text-cyan-300">Desempenho do dia (acumulado)</CardTitle>
+            <CardTitle className="text-primary">Desempenho do dia (acumulado)</CardTitle>
           </CardHeader>
           <CardContent className="min-w-0">
             <ResponsiveContainer width="100%" height={280}>
@@ -275,15 +295,15 @@ export default function SalesCentral() {
                 />
                 <Legend />
                 <Line type="monotone" dataKey="vendas" stroke="#06b6d4" strokeWidth={2} dot={false} name="Vendas" />
-                <Line type="monotone" dataKey="lucro" stroke="#a855f7" strokeWidth={2} dot={false} name="Lucro" />
+                <Line type="monotone" dataKey="lucro" stroke="#2150af" strokeWidth={2} dot={false} name="Lucro" />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
 
-        <Card className="bg-card/50 border-purple-500/20 min-w-0">
+        <Card className="bg-card/50 border-primary/20 glow-blue-hover min-w-0">
           <CardHeader className="py-4">
-            <CardTitle className="text-cyan-300">Pedidos por status</CardTitle>
+            <CardTitle className="text-primary">Pedidos por status</CardTitle>
           </CardHeader>
           <CardContent className="min-w-0">
             <ResponsiveContainer width="100%" height={280}>
@@ -296,7 +316,7 @@ export default function SalesCentral() {
                   formatter={(value: any) => `${Number(value)} pedidos`}
                 />
                 <Legend />
-                <Bar dataKey="value" fill="#06b6d4" name="Quantidade" />
+                <Bar dataKey="value" fill="#2150af" name="Quantidade" />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -305,9 +325,9 @@ export default function SalesCentral() {
 
       {/* Filas / Kanban */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <Card className="bg-card/50 border-purple-500/20 min-w-0">
+        <Card className="bg-card/50 border-primary/20 glow-blue-hover min-w-0">
           <CardHeader className="py-4">
-            <CardTitle className="text-cyan-300">Pendentes</CardTitle>
+            <CardTitle className="text-primary">Pendentes</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 min-w-0">
             {pendingOrders.length === 0 ? (
@@ -316,7 +336,10 @@ export default function SalesCentral() {
               pendingOrders.map((o) => (
                 <div
                   key={o.id}
-                  className="rounded-lg border border-cyan-500/10 bg-card/30 p-3 hover:border-cyan-400/40 transition-all hover:shadow-[0_0_18px_rgba(34,211,238,0.20)] min-w-0"
+                  className="rounded-lg border border-primary/10 bg-card/30 p-3 hover:border-primary/40 transition-all min-w-0"
+                  style={{
+                    boxShadow: "0 0 18px rgba(80, 160, 255, 0.18), 0 0 10px rgba(33, 80, 175, 0.12)",
+                  }}
                 >
                   <div className="flex items-start justify-between gap-3 min-w-0">
                     <div className="min-w-0">
@@ -357,9 +380,9 @@ export default function SalesCentral() {
           </CardContent>
         </Card>
 
-        <Card className="bg-card/50 border-purple-500/20 min-w-0">
+        <Card className="bg-card/50 border-primary/20 glow-blue-hover min-w-0">
           <CardHeader className="py-4">
-            <CardTitle className="text-cyan-300">Em andamento</CardTitle>
+            <CardTitle className="text-primary">Em andamento</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 min-w-0">
             {processingOrders.length === 0 ? (
@@ -368,7 +391,10 @@ export default function SalesCentral() {
               processingOrders.map((o) => (
                 <div
                   key={o.id}
-                  className="rounded-lg border border-cyan-500/10 bg-card/30 p-3 hover:border-cyan-400/40 transition-all hover:shadow-[0_0_18px_rgba(34,211,238,0.20)] min-w-0"
+                  className="rounded-lg border border-primary/10 bg-card/30 p-3 hover:border-primary/40 transition-all min-w-0"
+                  style={{
+                    boxShadow: "0 0 18px rgba(80, 160, 255, 0.18), 0 0 10px rgba(33, 80, 175, 0.12)",
+                  }}
                 >
                   <div className="flex items-start justify-between gap-3 min-w-0">
                     <div className="min-w-0">
@@ -409,9 +435,9 @@ export default function SalesCentral() {
           </CardContent>
         </Card>
 
-        <Card className="bg-card/50 border-purple-500/20 min-w-0">
+        <Card className="bg-card/50 border-primary/20 glow-blue-hover min-w-0">
           <CardHeader className="py-4">
-            <CardTitle className="text-cyan-300">Enviados</CardTitle>
+            <CardTitle className="text-primary">Enviados</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 min-w-0">
             {shippedOrders.length === 0 ? (
@@ -420,7 +446,10 @@ export default function SalesCentral() {
               shippedOrders.map((o) => (
                 <div
                   key={o.id}
-                  className="rounded-lg border border-cyan-500/10 bg-card/30 p-3 hover:border-cyan-400/40 transition-all hover:shadow-[0_0_18px_rgba(34,211,238,0.20)] min-w-0"
+                  className="rounded-lg border border-primary/10 bg-card/30 p-3 hover:border-primary/40 transition-all min-w-0"
+                  style={{
+                    boxShadow: "0 0 18px rgba(80, 160, 255, 0.18), 0 0 10px rgba(33, 80, 175, 0.12)",
+                  }}
                 >
                   <div className="flex items-start justify-between gap-3 min-w-0">
                     <div className="min-w-0">

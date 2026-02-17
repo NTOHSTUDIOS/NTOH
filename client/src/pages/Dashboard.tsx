@@ -27,6 +27,32 @@ type NewCostFormState = {
 };
 
 type CostHistoryPoint = { date: string; total: number };
+type CostHistoryPointByCategory = { date: string; total: number };
+
+// ===== Helpers de data (sem libs) =====
+function toISODateKey(d: Date) {
+  return d.toISOString().slice(0, 10); // YYYY-MM-DD
+}
+
+function daysBetweenISO(a: string, b: string) {
+  const da = new Date(a + "T00:00:00");
+  const db = new Date(b + "T00:00:00");
+  const diff = db.getTime() - da.getTime();
+  return Math.floor(diff / (1000 * 60 * 60 * 24));
+}
+
+function isWithinLastNDays(isoDateKey: string, nDays: number) {
+  const todayKey = toISODateKey(new Date());
+  const delta = daysBetweenISO(isoDateKey, todayKey);
+  return delta >= 0 && delta < nDays;
+}
+
+function avgFromHistoryLastNDays(history: CostHistoryPointByCategory[], nDays: number) {
+  const points = history.filter((p) => isWithinLastNDays(p.date, nDays));
+  if (points.length === 0) return 0;
+  const sum = points.reduce((acc, p) => acc + (typeof p.total === "number" ? p.total : 0), 0);
+  return sum / points.length;
+}
 
 export default function Dashboard() {
   const [activeModule, setActiveModule] = useState("sales");
@@ -48,7 +74,12 @@ export default function Dashboard() {
     description: "",
   });
 
+  // Histórico total (já existia)
   const [costHistory, setCostHistory] = useState<CostHistoryPoint[]>([]);
+
+  // Histórico por categoria (para média 3 meses)
+  const [fixedCostHistory, setFixedCostHistory] = useState<CostHistoryPointByCategory[]>([]);
+  const [variableCostHistory, setVariableCostHistory] = useState<CostHistoryPointByCategory[]>([]);
 
   useEffect(() => {
     const savedFixedCosts = localStorage.getItem("ntoh_fixed_costs");
@@ -59,6 +90,9 @@ export default function Dashboard() {
     const savedProducts = localStorage.getItem("ntoh_products");
     const savedReturns = localStorage.getItem("ntoh_returns");
     const savedCostHistory = localStorage.getItem("ntoh_cost_history");
+
+    const savedFixedHistory = localStorage.getItem("ntoh_cost_history_fixed");
+    const savedVariableHistory = localStorage.getItem("ntoh_cost_history_variable");
 
     if (savedFixedCosts) setFixedCosts(JSON.parse(savedFixedCosts));
     if (savedVariableCosts) setVariableCosts(JSON.parse(savedVariableCosts));
@@ -93,6 +127,8 @@ export default function Dashboard() {
     }
 
     if (savedCostHistory) setCostHistory(JSON.parse(savedCostHistory));
+    if (savedFixedHistory) setFixedCostHistory(JSON.parse(savedFixedHistory));
+    if (savedVariableHistory) setVariableCostHistory(JSON.parse(savedVariableHistory));
   }, []);
 
   useEffect(() => localStorage.setItem("ntoh_fixed_costs", JSON.stringify(fixedCosts)), [fixedCosts]);
@@ -102,7 +138,13 @@ export default function Dashboard() {
 
   useEffect(() => localStorage.setItem("ntoh_products", JSON.stringify(products)), [products]);
   useEffect(() => localStorage.setItem("ntoh_returns", JSON.stringify(returns)), [returns]);
+
   useEffect(() => localStorage.setItem("ntoh_cost_history", JSON.stringify(costHistory)), [costHistory]);
+  useEffect(() => localStorage.setItem("ntoh_cost_history_fixed", JSON.stringify(fixedCostHistory)), [fixedCostHistory]);
+  useEffect(
+    () => localStorage.setItem("ntoh_cost_history_variable", JSON.stringify(variableCostHistory)),
+    [variableCostHistory]
+  );
 
   const handleEditFixedCost = (item: CostItem) => setFixedCosts(fixedCosts.map((c) => (c.id === item.id ? item : c)));
   const handleDeleteFixedCost = (id: string) => setFixedCosts(fixedCosts.filter((c) => c.id !== id));
@@ -191,7 +233,7 @@ export default function Dashboard() {
   const totalOperationalCosts = totalFixedCosts + totalVariableCosts + totalTaxes + totalSuppliers;
 
   const recordTodayCostTotal = (total: number) => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = toISODateKey(new Date());
 
     setCostHistory((prev) => {
       const next = [...prev];
@@ -201,13 +243,40 @@ export default function Dashboard() {
       else next.push({ date: today, total });
 
       next.sort((a, b) => a.date.localeCompare(b.date));
-      return next.slice(-30);
+      return next.slice(-90);
+    });
+  };
+
+  const recordTodayCategoryTotals = (fixedTotal: number, variableTotal: number) => {
+    const today = toISODateKey(new Date());
+
+    setFixedCostHistory((prev) => {
+      const next = [...prev];
+      const idx = next.findIndex((p) => p.date === today);
+
+      if (idx >= 0) next[idx] = { date: today, total: fixedTotal };
+      else next.push({ date: today, total: fixedTotal });
+
+      next.sort((a, b) => a.date.localeCompare(b.date));
+      return next.slice(-90);
+    });
+
+    setVariableCostHistory((prev) => {
+      const next = [...prev];
+      const idx = next.findIndex((p) => p.date === today);
+
+      if (idx >= 0) next[idx] = { date: today, total: variableTotal };
+      else next.push({ date: today, total: variableTotal });
+
+      next.sort((a, b) => a.date.localeCompare(b.date));
+      return next.slice(-90);
     });
   };
 
   useEffect(() => {
     recordTodayCostTotal(totalOperationalCosts);
-  }, [totalOperationalCosts]);
+    recordTodayCategoryTotals(totalFixedCosts, totalVariableCosts);
+  }, [totalOperationalCosts, totalFixedCosts, totalVariableCosts]);
 
   const costHistoryChartData = useMemo(() => {
     return costHistory.map((p) => ({
@@ -215,6 +284,25 @@ export default function Dashboard() {
       custos: p.total,
     }));
   }, [costHistory]);
+
+  const avgFixed3m = useMemo(() => avgFromHistoryLastNDays(fixedCostHistory, 90), [fixedCostHistory]);
+  const avgVariable3m = useMemo(() => avgFromHistoryLastNDays(variableCostHistory, 90), [variableCostHistory]);
+
+  const isFixedAboveAvgBy5 = avgFixed3m > 0 ? totalFixedCosts >= avgFixed3m * 1.05 : false;
+  const isVariableAboveAvgBy5 = avgVariable3m > 0 ? totalVariableCosts >= avgVariable3m * 1.05 : false;
+
+  const ZERO_VALUE_CLASS = "text-[#334155]";
+  const LIGHT_BLUE_VALUE_CLASS = "text-sky-300";
+
+  const fixedValueClass =
+    totalFixedCosts === 0 ? ZERO_VALUE_CLASS : isFixedAboveAvgBy5 ? "text-red-400" : LIGHT_BLUE_VALUE_CLASS;
+
+  const variableValueClass =
+    totalVariableCosts === 0 ? ZERO_VALUE_CLASS : isVariableAboveAvgBy5 ? "text-red-400" : LIGHT_BLUE_VALUE_CLASS;
+
+  const taxValueClass = totalTaxes === 0 ? ZERO_VALUE_CLASS : LIGHT_BLUE_VALUE_CLASS;
+
+  const supplierValueClass = "text-red-400";
 
   const renderBilling = () => (
     <div className="space-y-6">
@@ -240,200 +328,208 @@ export default function Dashboard() {
     </div>
   );
 
-  const renderCosts = () => (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="rounded-xl border border-cyan-500/20 bg-card/50 px-5 py-4 transition-all duration-200 hover:border-cyan-400/70 hover:shadow-[0_0_24px_rgba(34,211,238,0.35)]">
-          <p className="text-base sm:text-lg font-semibold text-cyan-300">Custos Fixos</p>
-          <p className="mt-2 text-3xl sm:text-4xl font-bold text-cyan-300">R$ {totalFixedCosts.toFixed(2)}</p>
-        </div>
+  const renderCosts = () => {
+    const kpiClass =
+      "rounded-xl border border-primary/20 bg-card/50 px-5 py-4 transition-all duration-200 hover:border-primary/70 glow-blue-hover";
 
-        <div className="rounded-xl border border-cyan-500/20 bg-card/50 px-5 py-4 transition-all duration-200 hover:border-cyan-400/70 hover:shadow-[0_0_24px_rgba(34,211,238,0.35)]">
-          <p className="text-base sm:text-lg font-semibold text-cyan-300">Custos Variáveis</p>
-          <p className="mt-2 text-3xl sm:text-4xl font-bold text-cyan-300">R$ {totalVariableCosts.toFixed(2)}</p>
-        </div>
+    const titleWhite = "text-base sm:text-lg font-semibold text-white";
+    const valueBase = "mt-2 text-3xl sm:text-4xl font-bold";
 
-        <div className="rounded-xl border border-cyan-500/20 bg-card/50 px-5 py-4 transition-all duration-200 hover:border-cyan-400/70 hover:shadow-[0_0_24px_rgba(34,211,238,0.35)]">
-          <p className="text-base sm:text-lg font-semibold text-cyan-300">Impostos</p>
-          <p className="mt-2 text-3xl sm:text-4xl font-bold text-cyan-300">R$ {totalTaxes.toFixed(2)}</p>
-        </div>
-
-        <div className="rounded-xl border border-cyan-500/20 bg-card/50 px-5 py-4 transition-all duration-200 hover:border-cyan-400/70 hover:shadow-[0_0_24px_rgba(34,211,238,0.35)]">
-          <p className="text-base sm:text-lg font-semibold text-cyan-300">Fornecedores</p>
-          <p className="mt-2 text-3xl sm:text-4xl font-bold text-cyan-300">R$ {totalSuppliers.toFixed(2)}</p>
-        </div>
-      </div>
-
-      <Card className="bg-card/50 border border-purple-500/20 transition-all duration-200 hover:border-purple-400/70 hover:bg-purple-500/5 hover:shadow-[0_0_22px_rgba(168,85,247,0.25)]">
-        <CardHeader>
-          <CardTitle className="text-cyan-300">Evolução dos Custos (últimos 30 dias)</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-[320px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={costHistoryChartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-                <XAxis dataKey="label" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis
-                  stroke="#94a3b8"
-                  fontSize={12}
-                  tickLine={false}
-                  axisLine={false}
-                  tickFormatter={(v) => `R$ ${Number(v).toFixed(0)}`}
-                />
-                <Tooltip
-                  contentStyle={{ backgroundColor: "#0f172a", border: "1px solid #334155", borderRadius: "8px" }}
-                  itemStyle={{ color: "#f8fafc" }}
-                  formatter={(value: any) =>
-                    Number(value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
-                  }
-                />
-                <Line
-                  type="monotone"
-                  dataKey="custos"
-                  stroke="#a855f7"
-                  strokeWidth={3}
-                  dot={{ fill: "#a855f7", strokeWidth: 2, r: 4 }}
-                  activeDot={{ r: 6, stroke: "#a855f7", strokeWidth: 2 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className={kpiClass}>
+            <p className={titleWhite}>Custos Fixos</p>
+            <p className={`${valueBase} ${fixedValueClass}`}>R$ {totalFixedCosts.toFixed(2)}</p>
           </div>
-        </CardContent>
-      </Card>
 
-      <div className="flex items-center justify-between gap-2">
-        <Dialog open={isCostDialogOpen} onOpenChange={setIsCostDialogOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm" className="bg-purple-600 hover:bg-purple-700 text-white">
-              <Plus className="w-4 h-4 mr-2" />
-              Adicionar Custo
-            </Button>
-          </DialogTrigger>
+          <div className={kpiClass}>
+            <p className={titleWhite}>Custos Variáveis</p>
+            <p className={`${valueBase} ${variableValueClass}`}>R$ {totalVariableCosts.toFixed(2)}</p>
+          </div>
 
-          <DialogContent className="bg-card border-border">
-            <DialogHeader>
-              <DialogTitle className="text-cyan-300">Novo Custo</DialogTitle>
-            </DialogHeader>
+          <div className={kpiClass}>
+            <p className={titleWhite}>Impostos</p>
+            <p className={`${valueBase} ${taxValueClass}`}>R$ {totalTaxes.toFixed(2)}</p>
+          </div>
 
-            <form onSubmit={handleSubmitNewCost} className="space-y-4">
-              <div>
-                <Label htmlFor="category">Categoria</Label>
-                <Select
-                  value={newCost.category}
-                  onValueChange={(value) => setNewCost((p) => ({ ...p, category: value as CostCategory }))}
-                >
-                  <SelectTrigger id="category">
-                    <SelectValue placeholder="Selecione a categoria" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="fixed">Custo Fixo</SelectItem>
-                    <SelectItem value="variable">Custo Variável</SelectItem>
-                    <SelectItem value="tax">Impostos</SelectItem>
-                    <SelectItem value="supplier">Fornecedores</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label htmlFor="name">Nome</Label>
-                <Input
-                  id="name"
-                  value={newCost.name}
-                  onChange={(e) => setNewCost((p) => ({ ...p, name: e.target.value }))}
-                  placeholder="Ex: Aluguel, Salário..."
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="amount">Valor (R$)</Label>
-                <Input
-                  id="amount"
-                  type="number"
-                  step="0.01"
-                  value={newCost.amount}
-                  onChange={(e) => setNewCost((p) => ({ ...p, amount: parseFloat(e.target.value) || 0 }))}
-                  placeholder="0.00"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="description">Descrição</Label>
-                <Input
-                  id="description"
-                  value={newCost.description}
-                  onChange={(e) => setNewCost((p) => ({ ...p, description: e.target.value }))}
-                  placeholder="Descrição opcional..."
-                />
-              </div>
-
-              <div className="flex gap-2 pt-2">
-                <Button type="submit" className="flex-1 bg-purple-600 hover:bg-purple-700">
-                  Adicionar
-                </Button>
-                <Button type="button" variant="outline" onClick={() => setIsCostDialogOpen(false)} className="flex-1">
-                  Cancelar
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
-
-        <div className="flex items-center gap-2">
-          <Button
-            size="sm"
-            variant={costsViewMode === "grid" ? "default" : "outline"}
-            onClick={() => setCostsViewMode("grid")}
-          >
-            <LayoutGrid className="w-4 h-4" />
-          </Button>
-          <Button
-            size="sm"
-            variant={costsViewMode === "list" ? "default" : "outline"}
-            onClick={() => setCostsViewMode("list")}
-          >
-            <List className="w-4 h-4" />
-          </Button>
+          <div className={kpiClass}>
+            <p className={titleWhite}>Fornecedores</p>
+            <p className={`${valueBase} ${supplierValueClass}`}>R$ {totalSuppliers.toFixed(2)}</p>
+          </div>
         </div>
+
+        <Card className="bg-card/50 border border-primary/20 transition-all duration-200 hover:border-primary/70 hover:bg-primary/5 glow-blue-hover">
+          <CardHeader>
+            <CardTitle className="text-white">Evolução dos Custos (últimos 30 dias)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[320px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={costHistoryChartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
+                  <XAxis dataKey="label" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+                  <YAxis
+                    stroke="#94a3b8"
+                    fontSize={12}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(v) => `R$ ${Number(v).toFixed(0)}`}
+                  />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: "#0f172a", border: "1px solid #334155", borderRadius: "8px" }}
+                    itemStyle={{ color: "#f8fafc" }}
+                    formatter={(value: any) =>
+                      Number(value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+                    }
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="custos"
+                    stroke="#2150af"
+                    strokeWidth={3}
+                    dot={{ fill: "#2150af", strokeWidth: 2, r: 4 }}
+                    activeDot={{ r: 6, stroke: "#2150af", strokeWidth: 2 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="flex items-center justify-between gap-2">
+          <Dialog open={isCostDialogOpen} onOpenChange={setIsCostDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground">
+                <Plus className="w-4 h-4 mr-2" />
+                Adicionar Custo
+              </Button>
+            </DialogTrigger>
+
+            <DialogContent className="bg-card border-border">
+              <DialogHeader>
+                <DialogTitle className="text-white">Novo Custo</DialogTitle>
+              </DialogHeader>
+
+              <form onSubmit={handleSubmitNewCost} className="space-y-4">
+                <div>
+                  <Label htmlFor="category">Categoria</Label>
+                  <Select
+                    value={newCost.category}
+                    onValueChange={(value) => setNewCost((p) => ({ ...p, category: value as CostCategory }))}
+                  >
+                    <SelectTrigger id="category">
+                      <SelectValue placeholder="Selecione a categoria" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="fixed">Custo Fixo</SelectItem>
+                      <SelectItem value="variable">Custo Variável</SelectItem>
+                      <SelectItem value="tax">Impostos</SelectItem>
+                      <SelectItem value="supplier">Fornecedores</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="name">Nome</Label>
+                  <Input
+                    id="name"
+                    value={newCost.name}
+                    onChange={(e) => setNewCost((p) => ({ ...p, name: e.target.value }))}
+                    placeholder="Ex: Aluguel, Salário..."
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="amount">Valor (R$)</Label>
+                  <Input
+                    id="amount"
+                    type="number"
+                    step="0.01"
+                    value={newCost.amount}
+                    onChange={(e) => setNewCost((p) => ({ ...p, amount: parseFloat(e.target.value) || 0 }))}
+                    placeholder="0.00"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="description">Descrição</Label>
+                  <Input
+                    id="description"
+                    value={newCost.description}
+                    onChange={(e) => setNewCost((p) => ({ ...p, description: e.target.value }))}
+                    placeholder="Descrição opcional..."
+                  />
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <Button type="submit" className="flex-1 bg-primary hover:bg-primary/90">
+                    Adicionar
+                  </Button>
+                  <Button type="button" variant="outline" onClick={() => setIsCostDialogOpen(false)} className="flex-1">
+                    Cancelar
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant={costsViewMode === "grid" ? "default" : "outline"}
+              onClick={() => setCostsViewMode("grid")}
+            >
+              <LayoutGrid className="w-4 h-4" />
+            </Button>
+            <Button
+              size="sm"
+              variant={costsViewMode === "list" ? "default" : "outline"}
+              onClick={() => setCostsViewMode("list")}
+            >
+              <List className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+
+        <CostForm
+          title="Custos Fixos"
+          costs={fixedCosts}
+          onEditCost={handleEditFixedCost}
+          onDeleteCost={handleDeleteFixedCost}
+          onDuplicateCost={handleDuplicateFixedCost}
+          viewMode={costsViewMode}
+        />
+
+        <CostForm
+          title="Custos Variáveis"
+          costs={variableCosts}
+          onEditCost={handleEditVariableCost}
+          onDeleteCost={handleDeleteVariableCost}
+          onDuplicateCost={handleDuplicateVariableCost}
+          viewMode={costsViewMode}
+        />
+
+        <CostForm
+          title="Impostos"
+          costs={taxes}
+          onEditCost={handleEditTax}
+          onDeleteCost={handleDeleteTax}
+          onDuplicateCost={handleDuplicateTax}
+          viewMode={costsViewMode}
+        />
+
+        <CostForm
+          title="Fornecedores"
+          costs={suppliers}
+          onEditCost={handleEditSupplier}
+          onDeleteCost={handleDeleteSupplier}
+          onDuplicateCost={handleDuplicateSupplier}
+          viewMode={costsViewMode}
+        />
       </div>
-
-      <CostForm
-        title="Custos Fixos"
-        costs={fixedCosts}
-        onEditCost={handleEditFixedCost}
-        onDeleteCost={handleDeleteFixedCost}
-        onDuplicateCost={handleDuplicateFixedCost}
-        viewMode={costsViewMode}
-      />
-
-      <CostForm
-        title="Custos Variáveis"
-        costs={variableCosts}
-        onEditCost={handleEditVariableCost}
-        onDeleteCost={handleDeleteVariableCost}
-        onDuplicateCost={handleDuplicateVariableCost}
-        viewMode={costsViewMode}
-      />
-
-      <CostForm
-        title="Impostos"
-        costs={taxes}
-        onEditCost={handleEditTax}
-        onDeleteCost={handleDeleteTax}
-        onDuplicateCost={handleDuplicateTax}
-        viewMode={costsViewMode}
-      />
-
-      <CostForm
-        title="Fornecedores"
-        costs={suppliers}
-        onEditCost={handleEditSupplier}
-        onDeleteCost={handleDeleteSupplier}
-        onDuplicateCost={handleDuplicateSupplier}
-        viewMode={costsViewMode}
-      />
-    </div>
-  );
+    );
+  };
 
   const renderDevolutions = () => (
     <ReturnForm
