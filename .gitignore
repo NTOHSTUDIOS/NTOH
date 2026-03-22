@@ -1,34 +1,22 @@
-# Dependencies
+# Dependências
 **/node_modules
 .pnpm-store/
 
 # Build outputs
 dist/
+dist-ssr/
 build/
 *.dist
 
-# Environment variables
+# Arquivos locais
+*.local
+
+# Variáveis de ambiente
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
-
-# IDE and editor files
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# OS generated files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
 
 # Logs
 logs
@@ -39,71 +27,67 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-# Runtime data
+# Runtime / debug
 pids
 *.pid
 *.seed
 *.pid.lock
+.manus-logs/
 
-# Coverage directory used by tools like istanbul
+# Cobertura e testes
 coverage/
 *.lcov
-
-# nyc test coverage
 .nyc_output
 
-# Dependency directories
-jspm_packages/
-
-# TypeScript cache
+# Cache
 *.tsbuildinfo
-
-# Optional npm cache directory
 .npm
-
-# Optional eslint cache
 .eslintcache
-
-# Microbundle cache
 .rpt2_cache/
 .rts2_cache_cjs/
 .rts2_cache_es/
 .rts2_cache_umd/
-
-# Optional REPL history
-.node_repl_history
-
-# Output of 'npm pack'
-*.tgz
-
-# Yarn Integrity file
-.yarn-integrity
-
-# parcel-bundler cache (https://parceljs.org/)
 .cache
 .parcel-cache
 
-# Next.js build output
+# Dependências antigas / extras
+jspm_packages/
+
+# REPL / pacotes
+.node_repl_history
+*.tgz
+.yarn-integrity
+
+# Framework outputs
 .next
-
-# Nuxt.js build / generate output
 .nuxt
-
-# Gatsby files
-.cache/
-
-# Storybook build outputs
-.out
 .storybook-out
+.out
 
-# Temporary folders
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Sistema operacional
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Pastas temporárias
 tmp/
 temp/
 
-# Database
+# Banco de dados local
 *.db
 *.sqlite
 *.sqlite3
 
-# Webdev artifacts (checkpoint zips, migrations, etc.)
+# Artefatos locais
 .webdev/
