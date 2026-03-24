@@ -18,7 +18,7 @@ export default async function handler(req, res) {
     }
 
     const timestamp = Math.floor(Date.now() / 1000).toString();
-    const path = '/api/v2/account/get_account_info';
+    const path = '/api/v2/shop/get_shops';
     const baseString = partnerId + path + timestamp;
     
     const crypto = await import('crypto');
