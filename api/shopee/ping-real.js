@@ -19,7 +19,7 @@ export default async function handler(req, res) {
       });
     }
 
-    const timestamp = Date.now().toString();
+    const timestamp = Math.floor(Date.now() / 1000).toString();
     const path = '/api/v2/shop/get_shop_info';
     const baseString = partnerId + path + timestamp;
     
