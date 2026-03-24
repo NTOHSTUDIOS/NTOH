@@ -24,18 +24,10 @@ export default async function handler(req, res) {
     const crypto = await import('crypto');
     const sign = crypto.createHmac('sha256', partnerKey).update(baseString).digest('hex');
 
-    const url = `${baseUrl}${path}?partner_id=${partnerId}&timestamp=${timestamp}&sign=${sign}`;
+    const url = `${baseUrl}${path}?partner_id=${partnerId}&timestamp=${timestamp}&sign=${sign}&page_no=1&page_size=10`;
     
-    const body = {
-      partner_id: parseInt(partnerId),
-      timestamp: parseInt(timestamp),
-      sign
-    };
-
     const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
+      method: 'GET'
     });
 
     const data = await response.json();
