@@ -1,6 +1,5 @@
 // client/src/pages/Dashboard.tsx
-import { useState, useEffect, useMemo } from "react";
-// AJUSTE DE IMPORTAÇÃO: Usando export nomeado (com chaves) conforme erro no VS Code
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Sidebar } from "../components/Sidebar";
 import { CostForm, type CostItem } from "../components/CostForm";
 import { ProductForm, type Product } from "../components/ProductForm";
@@ -18,6 +17,19 @@ import { LayoutGrid, List, Plus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
 import { supabase } from "../lib/supabase";
+
+// Estendendo os tipos importados para garantir que os campos necessários existam no Dashboard
+interface ExtendedCostItem extends CostItem {
+  category: string;
+}
+
+interface ExtendedProduct extends Product {
+  created_at?: string;
+  user_id?: string;
+}
+
+// Usando 'any' para o ExtendedReturn para evitar conflitos com a interface original do ReturnForm
+type ExtendedReturn = any;
 
 type CostCategory = "fixed" | "variable" | "tax" | "supplier";
 
@@ -57,34 +69,18 @@ function avgFromHistoryLastNDays(history: CostHistoryPointByCategory[], nDays: n
 }
 
 export default function Dashboard() {
-    // LOG PARA CONFIRMAR QUE O COMPONENTE CARREGOU NO LOCALHOST
   console.log("Dashboard vFinal: Carregado com sucesso!");
 
   const [session, setSession] = useState<any>(null);
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setSession(session);
-      }
-    );
-
-    return () => subscription.unsubscribe();
-  }, []);
-
   const [activeModule, setActiveModule] = useState("sales");
 
-  const [fixedCosts, setFixedCosts] = useState<CostItem[]>([]);
-  const [variableCosts, setVariableCosts] = useState<CostItem[]>([]);
-  const [taxes, setTaxes] = useState<CostItem[]>([]);
-  const [suppliers, setSuppliers] = useState<CostItem[]>([]);
+  const [fixedCosts, setFixedCosts] = useState<ExtendedCostItem[]>([]);
+  const [variableCosts, setVariableCosts] = useState<ExtendedCostItem[]>([]);
+  const [taxes, setTaxes] = useState<ExtendedCostItem[]>([]);
+  const [suppliers, setSuppliers] = useState<ExtendedCostItem[]>([]);
 
-  const [products, setProducts] = useState<Product[]>([]);
-  const [returns, setReturns] = useState<Return[]>([]);
+  const [products, setProducts] = useState<ExtendedProduct[]>([]);
+  const [returns, setReturns] = useState<ExtendedReturn[]>([]);
   const [costsViewMode, setCostsViewMode] = useState<"grid" | "list">("list");
 
   const [isCostDialogOpen, setIsCostDialogOpen] = useState(false);
@@ -94,96 +90,129 @@ export default function Dashboard() {
     amount: 0,
     description: "",
   });
-  const refetchProducts = async () => {
-  if (!session?.user) return;
-  const { data, error } = await supabase
-    .from('products')
-    .select('*')
-    .eq('user_id', session.user.id)
-    .order('created_at', { ascending: false });
-  if (error) {
-    toast.error('Erro ao recarregar: ' + error.message);
-  } else {
-    setProducts(data || []);
-  }
-};
 
-  // Histórico total
   const [costHistory, setCostHistory] = useState<CostHistoryPoint[]>([]);
-
-  // Histórico por categoria
   const [fixedCostHistory, setFixedCostHistory] = useState<CostHistoryPointByCategory[]>([]);
   const [variableCostHistory, setVariableCostHistory] = useState<CostHistoryPointByCategory[]>([]);
 
   const [loading, setLoading] = useState(true);
 
-  // --- BUSCAR DADOS DO SUPABASE ---
- useEffect(() => {
-  async function fetchData() {
-    if (!session?.user) {
-      console.log("Session null, aguardando login...");
-      return;
+  const refetchProducts = useCallback(async (currentSession: any) => {
+    if (!currentSession?.user) return;
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .eq('user_id', currentSession.user.id)
+      .order('created_at', { ascending: false });
+    if (error) {
+      toast.error('Erro ao recarregar produtos: ' + error.message);
+    } else {
+      setProducts(data || []);
     }
+  }, []);
 
-    try {
-      setLoading(true);
-      console.log("Iniciando busca de dados no Supabase...");
+  const refetchCosts = useCallback(async (currentSession: any) => {
+    if (!currentSession?.user) return;
+    const { data, error } = await supabase
+      .from('costs')
+      .select('*')
+      .eq('user_id', currentSession.user.id);
+    if (error) {
+      toast.error('Erro ao recarregar custos: ' + error.message);
+    } else {
+      const costs = (data as ExtendedCostItem[]) || [];
+      setFixedCosts(costs.filter((c) => c.category === "fixed"));
+      setVariableCosts(costs.filter((c) => c.category === "variable"));
+      setTaxes(costs.filter((c) => c.category === "tax"));
+      setSuppliers(costs.filter((c) => c.category === "supplier"));
+    }
+  }, []);
 
-      // Buscar Custos
-      const { data: costsData, error: costsError } = await supabase
-        .from("costs")
-        .select("*")
-        .eq('user_id', session.user.id);
-      if (costsError) throw costsError;
-      if (costsData) {
-        setFixedCosts(costsData.filter((c) => c.category === "fixed"));
-        setVariableCosts(costsData.filter((c) => c.category === "variable"));
-        setTaxes(costsData.filter((c) => c.category === "tax"));
-        setSuppliers(costsData.filter((c) => c.category === "supplier"));
-      }
+  const refetchReturns = useCallback(async (currentSession: any) => {
+    if (!currentSession?.user) return;
+    const { data, error } = await supabase
+      .from('returns')
+      .select('*')
+      .eq('user_id', currentSession.user.id);
+    if (error) {
+      toast.error('Erro ao recarregar devoluções: ' + error.message);
+    } else {
+      setReturns(data || []);
+    }
+  }, []);
 
-      // Buscar Produtos
-      const { data: productsData, error: productsError } = await supabase
-        .from("products")
-        .select("*")
-        .eq('user_id', session.user.id);
-      if (productsError) throw productsError;
-      if (productsData) setProducts(productsData);
+  const refetchCostHistory = useCallback(async (currentSession: any) => {
+    if (!currentSession?.user) return;
+    const { data: historyData, error: historyError } = await supabase
+      .from("cost_history")
+      .select("*")
+      .eq('user_id', currentSession.user.id)
+      .order("date", { ascending: true });
+    if (historyError) {
+      toast.error('Erro ao recarregar histórico de custos: ' + historyError.message);
+    } else if (historyData) {
+      setCostHistory(historyData.map((h: any) => ({ date: h.date, total: h.total })));
+      setFixedCostHistory(historyData.map((h: any) => ({ date: h.date, total: h.fixed_total })));
+      setVariableCostHistory(historyData.map((h: any) => ({ date: h.date, total: h.variable_total })));
+    }
+  }, []);
 
-      // Buscar Devoluções
-      const { data: returnsData, error: returnsError } = await supabase
-        .from("returns")
-        .select("*")
-        .eq('user_id', session.user.id);
-      if (returnsError) throw returnsError;
-      if (returnsData) setReturns(returnsData);
-
-      // Buscar Histórico de Custos
-      const { data: historyData, error: historyError } = await supabase
-        .from("cost_history")
-        .select("*")
-        .eq('user_id', session.user.id)
-        .order("date", { ascending: true });
-      if (historyError) throw historyError;
-      if (historyData) {
-        setCostHistory(historyData.map(h => ({ date: h.date, total: h.total })));
-        setFixedCostHistory(historyData.map(h => ({ date: h.date, total: h.fixed_total })));
-        setVariableCostHistory(historyData.map(h => ({ date: h.date, total: h.variable_total })));
-      }
-
-      console.log("Dados carregados com sucesso!");
-    } catch (error: any) {
-      console.error("Erro ao carregar dados do Supabase:", error.message);
-      toast.error("Erro ao conectar com o banco de dados.");
-    } finally {
+  useEffect(() => {
+    const getSessionAndSetupListener = async () => {
+      const { data: { session: initialSession } } = await supabase.auth.getSession();
+      setSession(initialSession);
       setLoading(false);
+
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(
+        async (_event, currentSession) => {
+          setSession(currentSession);
+          if (currentSession?.user) {
+            setLoading(true);
+            await Promise.all([
+              refetchProducts(currentSession),
+              refetchCosts(currentSession),
+              refetchReturns(currentSession),
+              refetchCostHistory(currentSession),
+            ]);
+            setLoading(false);
+          } else {
+            setFixedCosts([]);
+            setVariableCosts([]);
+            setTaxes([]);
+            setSuppliers([]);
+            setProducts([]);
+            setReturns([]);
+            setCostHistory([]);
+            setFixedCostHistory([]);
+            setVariableCostHistory([]);
+            setLoading(false);
+          }
+        }
+      );
+      return () => subscription.unsubscribe();
+    };
+
+    getSessionAndSetupListener();
+  }, [refetchProducts, refetchCosts, refetchReturns, refetchCostHistory]);
+
+  useEffect(() => {
+    async function fetchData() {
+      if (session?.user) {
+        setLoading(true);
+        await Promise.all([
+          refetchProducts(session),
+          refetchCosts(session),
+          refetchReturns(session),
+          refetchCostHistory(session),
+        ]);
+        setLoading(false);
+      } else if (session === null) {
+        setLoading(false);
+      }
     }
-  }
+    fetchData();
+  }, [session, refetchProducts, refetchCosts, refetchReturns, refetchCostHistory]);
 
-  fetchData();
-}, [session]);  // Recarrega após login
-
-  // --- HANDLERS DE CUSTOS (SUPABASE) ---
   const handleEditCost = async (item: CostItem, category: CostCategory) => {
     const { error } = await supabase.from("costs").update({
       name: item.name,
@@ -192,22 +221,21 @@ export default function Dashboard() {
     }).eq("id", item.id);
 
     if (error) {
-      console.error("Erro ao atualizar custo:", error);
       toast.error("Erro ao atualizar custo");
       return;
     }
 
-    if (category === "fixed") setFixedCosts(prev => prev.map(c => c.id === item.id ? item : c));
-    if (category === "variable") setVariableCosts(prev => prev.map(c => c.id === item.id ? item : c));
-    if (category === "tax") setTaxes(prev => prev.map(c => c.id === item.id ? item : c));
-    if (category === "supplier") setSuppliers(prev => prev.map(c => c.id === item.id ? item : c));
+    const updatedItem = { ...item, category } as ExtendedCostItem;
+    if (category === "fixed") setFixedCosts(prev => prev.map(c => c.id === item.id ? updatedItem : c));
+    if (category === "variable") setVariableCosts(prev => prev.map(c => c.id === item.id ? updatedItem : c));
+    if (category === "tax") setTaxes(prev => prev.map(c => c.id === item.id ? updatedItem : c));
+    if (category === "supplier") setSuppliers(prev => prev.map(c => c.id === item.id ? updatedItem : c));
     toast.success("Custo atualizado");
   };
 
   const handleDeleteCost = async (id: string, category: CostCategory) => {
     const { error } = await supabase.from("costs").delete().eq("id", id);
     if (error) {
-      console.error("Erro ao excluir custo:", error);
       toast.error("Erro ao excluir custo");
       return;
     }
@@ -222,195 +250,301 @@ export default function Dashboard() {
   const handleDuplicateCost = async (item: CostItem, category: CostCategory) => {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { id, ...newItemWithoutId } = item;
-    const { data, error } = await supabase.from("costs").insert([{ ...newItemWithoutId, category }]).select().single();
+    const { data, error } = await supabase.from("costs").insert([{ ...newItemWithoutId, category, user_id: session?.user?.id }]).select().single();
     
     if (error) {
-      console.error("Erro ao duplicar custo:", error);
       toast.error("Erro ao duplicar custo");
       return;
     }
 
-    if (category === "fixed") setFixedCosts(prev => [...prev, data]);
-    if (category === "variable") setVariableCosts(prev => [...prev, data]);
-    if (category === "tax") setTaxes(prev => [...prev, data]);
-    if (category === "supplier") setSuppliers(prev => [...prev, data]);
-    toast.success("Custo duplicado");
+    if (data) {
+      const extendedData = data as ExtendedCostItem;
+      if (category === "fixed") setFixedCosts(prev => [...prev, extendedData]);
+      if (category === "variable") setVariableCosts(prev => [...prev, extendedData]);
+      if (category === "tax") setTaxes(prev => [...prev, extendedData]);
+      if (category === "supplier") setSuppliers(prev => [...prev, extendedData]);
+      toast.success("Custo duplicado");
+    }
   };
 
   const handleSubmitNewCost = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Enviando novo custo para o Supabase...");
-
-    if (!newCost.name.trim()) {
-      toast.error("Nome do custo é obrigatório");
+    if (!session?.user) {
+      toast.error("Usuário não autenticado.");
       return;
     }
 
-    const { data, error } = await supabase.from("costs").insert([{
-      name: newCost.name,
-      amount: newCost.amount,
-      description: newCost.description,
-      category: newCost.category
-    }]).select().single();
+    const { data, error } = await supabase
+      .from("costs")
+      .insert([{ ...newCost, user_id: session.user.id }])
+      .select()
+      .single();
 
     if (error) {
-      console.error("Erro ao inserir custo:", error);
-      toast.error(`Erro ao salvar: ${error.message}`);
+      toast.error("Erro ao adicionar custo");
       return;
     }
 
-    console.log("Custo salvo com sucesso:", data);
-
-    if (newCost.category === "fixed") setFixedCosts((prev) => [...prev, data]);
-    if (newCost.category === "variable") setVariableCosts((prev) => [...prev, data]);
-    if (newCost.category === "tax") setTaxes((prev) => [...prev, data]);
-    if (newCost.category === "supplier") setSuppliers((prev) => [...prev, data]);
-
-    toast.success("Custo adicionado com sucesso");
-    setIsCostDialogOpen(false);
-    setNewCost({ category: "fixed", name: "", amount: 0, description: "" });
+    if (data) {
+      const extendedData = data as ExtendedCostItem;
+      if (newCost.category === "fixed") setFixedCosts((prev) => [...prev, extendedData]);
+      if (newCost.category === "variable") setVariableCosts((prev) => [...prev, extendedData]);
+      if (newCost.category === "tax") setTaxes((prev) => [...prev, extendedData]);
+      if (newCost.category === "supplier") setSuppliers((prev) => [...prev, extendedData]);
+      toast.success("Custo adicionado");
+      setIsCostDialogOpen(false);
+      setNewCost({
+        category: "fixed",
+        name: "",
+        amount: 0,
+        description: "",
+      });
+    }
   };
 
-  // --- HANDLERS DE PRODUTOS (SUPABASE) ---
-  const handleAddProduct = async (productData: Omit<Product, 'id'>) => {
-  if (!session?.user) {
-    toast.error('Faça login primeiro!');
-    return;
-  }
-  const { error } = await supabase
-    .from('products')
-    .insert({ ...productData, user_id: session.user.id });
-  if (error) {
-    toast.error('Erro ao adicionar: ' + error.message);
-  } else {
-    toast.success('Produto adicionado!');
-    refetchProducts();  // UI atualiza sem F5
-  }
-};
+  const handleAddProduct = async (newProduct: Omit<Product, 'id'>) => {
+    if (!session?.user) {
+      toast.error("Usuário não autenticado.");
+      return;
+    }
+    const { data, error } = await supabase
+      .from("products")
+      .insert([{ ...newProduct, user_id: session.user.id }])
+      .select()
+      .single();
 
-  const handleEditProduct = async (product: Product) => {
-    const { error } = await supabase.from("products").update(product).eq("id", product.id);
-    if (error) { console.error(error); toast.error("Erro ao atualizar produto"); return; }
-    setProducts(products.map((p) => (p.id === product.id ? product : p)));
+    if (error) {
+      toast.error("Erro ao adicionar produto");
+      return;
+    }
+    if (data) {
+      setProducts((prev) => [...prev, data as ExtendedProduct]);
+      toast.success("Produto adicionado");
+    }
+  };
+
+  const handleEditProduct = async (updatedProduct: Product) => {
+    const { error } = await supabase
+      .from("products")
+      .update(updatedProduct)
+      .eq("id", updatedProduct.id);
+
+    if (error) {
+      toast.error("Erro ao atualizar produto");
+      return;
+    }
+    setProducts((prev) => prev.map((p) => (p.id === updatedProduct.id ? updatedProduct as ExtendedProduct : p)));
     toast.success("Produto atualizado");
   };
 
   const handleDeleteProduct = async (id: string) => {
     const { error } = await supabase.from("products").delete().eq("id", id);
-    if (error) { console.error(error); toast.error("Erro ao excluir produto"); return; }
-    setProducts(products.filter((p) => p.id !== id));
+    if (error) {
+      toast.error("Erro ao excluir produto");
+      return;
+    }
+    setProducts((prev) => prev.filter((p) => p.id !== id));
     toast.success("Produto excluído");
   };
 
   const handleDuplicateProduct = async (product: Product) => {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { id, ...newItemWithoutId } = product;
-    const { data, error } = await supabase.from("products").insert([newItemWithoutId]).select().single();
-    if (error) { console.error(error); toast.error("Erro ao duplicar produto"); return; }
-    setProducts([...products, data]);
-    toast.success("Produto duplicado");
+    const { id, ...newProductWithoutId } = product;
+    if (!session?.user) {
+      toast.error("Usuário não autenticado.");
+      return;
+    }
+    const { data, error } = await supabase
+      .from("products")
+      .insert([{ ...newProductWithoutId, user_id: session.user.id }])
+      .select()
+      .single();
+
+    if (error) {
+      toast.error("Erro ao duplicar produto");
+      return;
+    }
+    if (data) {
+      setProducts((prev) => [...prev, data as ExtendedProduct]);
+      toast.success("Produto duplicado");
+    }
   };
 
-  // --- HANDLERS DE DEVOLUÇÕES (SUPABASE) ---
-  const handleAddReturn = async (returnItem: Return) => {
-    const { data, error } = await supabase.from("returns").insert([returnItem]).select().single();
-    if (error) { console.error(error); toast.error("Erro ao adicionar devolução"); return; }
-    setReturns([...returns, data]);
-    toast.success("Devolução registrada");
+  const handleAddReturn = async (newReturn: Omit<Return, 'id'>) => {
+    if (!session?.user) {
+      toast.error("Usuário não autenticado.");
+      return;
+    }
+    const { data, error } = await supabase
+      .from("returns")
+      .insert([{ ...newReturn, user_id: session.user.id }])
+      .select()
+      .single();
+
+    if (error) {
+      toast.error("Erro ao adicionar devolução");
+      return;
+    }
+    if (data) {
+      setReturns((prev) => [...prev, data as ExtendedReturn]);
+      toast.success("Devolução adicionada");
+    }
   };
 
-  const handleEditReturn = async (returnItem: Return) => {
-    const { error } = await supabase.from("returns").update(returnItem).eq("id", returnItem.id);
-    if (error) { console.error(error); toast.error("Erro ao atualizar devolução"); return; }
-    setReturns(returns.map((r) => (r.id === returnItem.id ? returnItem : r)));
+  const handleEditReturn = async (updatedReturn: Return) => {
+    const { error } = await supabase
+      .from("returns")
+      .update(updatedReturn)
+      .eq("id", updatedReturn.id);
+
+    if (error) {
+      toast.error("Erro ao atualizar devolução");
+      return;
+    }
+    setReturns((prev) => prev.map((r) => (r.id === updatedReturn.id ? updatedReturn as ExtendedReturn : r)));
+    toast.success("Devolução atualizada");
   };
 
   const handleDeleteReturn = async (id: string) => {
     const { error } = await supabase.from("returns").delete().eq("id", id);
-    if (error) { console.error(error); toast.error("Erro ao excluir devolução"); return; }
-    setReturns(returns.filter((r) => r.id !== id));
+    if (error) {
+      toast.error("Erro ao excluir devolução");
+      return;
+    }
+    setReturns((prev) => prev.filter((r) => r.id !== id));
+    toast.success("Devolução excluída");
   };
 
-  const handleDuplicateReturn = async (returnItem: Return) => {
+  const handleDuplicateReturn = async (item: any) => {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { id, ...newItemWithoutId } = returnItem;
-    const newItem = { ...newItemWithoutId, status: "pending", createdAt: new Date().toISOString() };
-    const { data, error } = await supabase.from("returns").insert([newItem]).select().single();
-    if (error) { console.error(error); toast.error("Erro ao duplicar devolução"); return; }
-    setReturns([...returns, data]);
+    const { id, ...newItemWithoutId } = item;
+    if (!session?.user) {
+      toast.error("Usuário não autenticado.");
+      return;
+    }
+    const { data, error } = await supabase
+      .from("returns")
+      .insert([{ ...newItemWithoutId, user_id: session.user.id }])
+      .select()
+      .single();
+
+    if (error) {
+      toast.error("Erro ao duplicar devolução");
+      return;
+    }
+    if (data) {
+      setReturns((prev) => [...prev, data as ExtendedReturn]);
+      toast.success("Devolução duplicada");
+    }
   };
 
   const handleMoveToProcessing = async (id: string) => {
-    const { error } = await supabase.from("returns").update({ status: "processing" }).eq("id", id);
-    if (error) return;
-    setReturns(returns.map((r) => (r.id === id ? { ...r, status: "processing" } : r)));
+    const { error } = await supabase
+      .from("returns")
+      .update({ status: "processing" })
+      .eq("id", id);
+
+    if (error) {
+      toast.error("Erro ao mover para processamento");
+      return;
+    }
+    setReturns((prev) => prev.map((r) => (r.id === id ? { ...r, status: "processing" } : r)));
+    toast.success("Devolução movida para processamento");
   };
 
   const handleMoveToCompleted = async (id: string) => {
-    const { error } = await supabase.from("returns").update({ status: "completed" }).eq("id", id);
-    if (error) return;
-    setReturns(returns.map((r) => (r.id === id ? { ...r, status: "completed" } : r)));
+    const { error } = await supabase
+      .from("returns")
+      .update({ status: "completed" })
+      .eq("id", id);
+
+    if (error) {
+      toast.error("Erro ao mover para concluído");
+      return;
+    }
+    setReturns((prev) => prev.map((r) => (r.id === id ? { ...r, status: "completed" } : r)));
+    toast.success("Devolução movida para concluído");
   };
 
-  const handleAddReturnToStock = async (returnItem: Return) => {
-    const newProduct = {
-      name: returnItem.name,
-      sku: returnItem.sku,
-      color: returnItem.color,
-      size: returnItem.size,
-      cost: returnItem.cost,
-      quantity: returnItem.quantity,
-    };
-    
-    const { data, error } = await supabase.from("products").insert([newProduct]).select().single();
-    if (error) { console.error(error); toast.error("Erro ao adicionar ao estoque"); return; }
-    setProducts([...products, data]);
-    toast.success("Produto retornado ao estoque");
+  const handleAddReturnToStock = async (returnItem: any) => {
+    if (!returnItem.id) return;
+
+    const { data: productItem, error: productFetchError } = await supabase
+      .from("products")
+      .select("*")
+      .eq("name", returnItem.product_name)
+      .single();
+
+    if (productFetchError || !productItem) {
+      toast.error("Produto não encontrado para adicionar ao estoque");
+      return;
+    }
+
+    const newQuantity = productItem.quantity + returnItem.quantity;
+    const { error: updateError } = await supabase
+      .from("products")
+      .update({ quantity: newQuantity })
+      .eq("id", productItem.id);
+
+    if (updateError) {
+      toast.error("Erro ao atualizar estoque");
+      return;
+    }
+
+    await handleDeleteReturn(returnItem.id);
+    toast.success("Devolução adicionada ao estoque e processada");
   };
 
-  // --- CÁLCULOS ---
-  const totalFixedCosts = useMemo(() => fixedCosts.reduce((sum, item) => sum + item.amount, 0), [fixedCosts]);
-  const totalVariableCosts = useMemo(() => variableCosts.reduce((sum, item) => sum + item.amount, 0), [variableCosts]);
-  const totalTaxes = useMemo(() => taxes.reduce((sum, item) => sum + item.amount, 0), [taxes]);
-  const totalSuppliers = useMemo(() => suppliers.reduce((sum, item) => sum + item.amount, 0), [suppliers]);
+  const totalFixedCosts = useMemo(() => {
+    return fixedCosts.reduce((sum: number, item: ExtendedCostItem) => sum + item.amount, 0);
+  }, [fixedCosts]);
 
-  const totalOperationalCosts = totalFixedCosts + totalVariableCosts + totalTaxes + totalSuppliers;
+  const totalVariableCosts = useMemo(() => {
+    return variableCosts.reduce((sum: number, item: ExtendedCostItem) => sum + item.amount, 0);
+  }, [variableCosts]);
 
-  // Sincronizar Histórico Diário no Supabase
-  useEffect(() => {
-    if (loading) return;
+  const totalTaxes = useMemo(() => {
+    return taxes.reduce((sum: number, item: ExtendedCostItem) => sum + item.amount, 0);
+  }, [taxes]);
 
-    const syncHistory = async () => {
-      const today = toISODateKey(new Date());
-      const { error } = await supabase.from("cost_history").upsert({
-        date: today,
-        total: totalOperationalCosts,
-        fixed_total: totalFixedCosts,
-        variable_total: totalVariableCosts
-      }, { onConflict: 'date' });
+  const totalSuppliers = useMemo(() => {
+    return suppliers.reduce((sum: number, item: ExtendedCostItem) => sum + item.amount, 0);
+  }, [suppliers]);
 
-      if (error) console.error("Erro ao sincronizar histórico:", error.message);
-    };
+  const totalProducts = useMemo(() => {
+    return products.reduce((sum: number, p: ExtendedProduct) => sum + p.quantity, 0);
+  }, [products]);
 
-    const timeoutId = setTimeout(syncHistory, 2000); // Debounce de 2s
-    return () => clearTimeout(timeoutId);
-  }, [totalOperationalCosts, totalFixedCosts, totalVariableCosts, loading]);
+  const totalReturns = useMemo(() => {
+    return returns.reduce((sum: number, r: ExtendedReturn) => sum + (r.quantity || 0), 0);
+  }, [returns]);
 
   const costHistoryChartData = useMemo(() => {
-    return costHistory.map((p) => ({
-      label: p.date.slice(5).split("-").reverse().join("/"),
-      custos: p.total,
+    const last30Days = Array.from({ length: 30 }, (_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - (29 - i));
+      return toISODateKey(d);
+    });
+
+    const dataMap = new Map<string, number>();
+    costHistory.forEach(point => {
+      dataMap.set(point.date, point.total);
+    });
+
+    return last30Days.map(date => ({
+      label: new Date(date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+      custos: dataMap.get(date) || 0,
     }));
   }, [costHistory]);
 
-  const avgFixed3m = useMemo(() => avgFromHistoryLastNDays(fixedCostHistory, 90), [fixedCostHistory]);
-  const avgVariable3m = useMemo(() => avgFromHistoryLastNDays(variableCostHistory, 90), [variableCostHistory]);
+  const avgFixedLast7Days = useMemo(() => avgFromHistoryLastNDays(fixedCostHistory, 7), [fixedCostHistory]);
+  const avgVariableLast7Days = useMemo(() => avgFromHistoryLastNDays(variableCostHistory, 7), [variableCostHistory]);
 
-  const isFixedAboveAvgBy5 = avgFixed3m > 0 ? totalFixedCosts >= avgFixed3m * 1.05 : false;
-  const isVariableAboveAvgBy5 = avgVariable3m > 0 ? totalVariableCosts >= avgVariable3m * 1.05 : false;
+  const isFixedAboveAvgBy5 = totalFixedCosts > avgFixedLast7Days * 1.05;
+  const isVariableAboveAvgBy5 = totalVariableCosts > avgVariableLast7Days * 1.05;
 
-  const ZERO_VALUE_CLASS = "text-[#334155]";
-  const LIGHT_BLUE_VALUE_CLASS = "text-sky-300";
+  const ZERO_VALUE_CLASS = "text-muted-foreground";
+  const LIGHT_BLUE_VALUE_CLASS = "text-blue-400";
 
   const fixedValueClass =
     totalFixedCosts === 0 ? ZERO_VALUE_CLASS : isFixedAboveAvgBy5 ? "text-red-400" : LIGHT_BLUE_VALUE_CLASS;
@@ -421,7 +555,6 @@ export default function Dashboard() {
   const taxValueClass = totalTaxes === 0 ? ZERO_VALUE_CLASS : LIGHT_BLUE_VALUE_CLASS;
   const supplierValueClass = "text-red-400";
 
-  // --- RENDERIZAÇÃO ---
   const renderBilling = () => (
     <div className="space-y-6">
       <Billing fixedCosts={fixedCosts} variableCosts={variableCosts} products={products} />
@@ -653,10 +786,10 @@ export default function Dashboard() {
       returns={returns}
       onAddReturn={handleAddReturn}
       onEditReturn={handleEditReturn}
-      onDeleteReturn={handleDeleteReturn}
+      onDeleteReturn={(item: any) => handleDeleteReturn(item.id)}
       onDuplicateReturn={handleDuplicateReturn}
-      onMoveToProcessing={handleMoveToProcessing}
-      onMoveToCompleted={handleMoveToCompleted}
+      onMoveToProcessing={(item: any) => handleMoveToProcessing(item.id)}
+      onMoveToCompleted={(item: any) => handleMoveToCompleted(item.id)}
       onAddToStock={handleAddReturnToStock}
     />
   );
@@ -673,9 +806,7 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-background flex">
       <Sidebar activeModule={activeModule} onModuleChange={setActiveModule} />
-
       <div aria-hidden="true" className="shrink-0" style={{ width: "var(--ntoh-sidebar-width, 80px)" }} />
-
       <main className="flex-1 min-h-screen overflow-y-auto py-6 px-4 sm:px-6 lg:px-8 min-w-0">
         <div className="w-full max-w-[1440px] 2xl:max-w-[1600px] mx-auto">
           {activeModule === "billing" && renderBilling()}
@@ -683,7 +814,6 @@ export default function Dashboard() {
           {activeModule === "stock" && renderStock()}
           {activeModule === "costs" && renderCosts()}
           {activeModule === "devolutions" && renderDevolutions()}
-
           {!["billing", "sales", "stock", "costs", "devolutions"].includes(activeModule) && (
             <div className="text-sm text-muted-foreground">Módulo não encontrado: {activeModule}</div>
           )}
