@@ -227,7 +227,10 @@ export default function Dashboard() {
 
   // --- HANDLERS DE PRODUTOS (SUPABASE) ---
   const handleAddProduct = async (product: Product) => {
-    const { data, error } = await supabase.from("products").insert([product]).select().single();
+    // Supabase deve gerar o ID automaticamente. Removemos a geração manual de ID aqui.
+    // Garante que o ID não seja enviado para o Supabase, permitindo que ele gere um novo.
+    const { id, ...productWithoutId } = product;
+    const { data, error } = await supabase.from("products").insert([productWithoutId]).select().single();
     if (error) { console.error(error); toast.error("Erro ao adicionar produto"); return; }
     setProducts([...products, data]);
     toast.success("Produto adicionado");
