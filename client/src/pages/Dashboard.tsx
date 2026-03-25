@@ -56,6 +56,8 @@ function avgFromHistoryLastNDays(history: CostHistoryPointByCategory[], nDays: n
 }
 
 export default function Dashboard() {
+  console.log("Dashboard Renderizado - Verificando conexão Supabase...");
+  
   const [activeModule, setActiveModule] = useState("sales");
 
   const [fixedCosts, setFixedCosts] = useState<CostItem[]>([]);
@@ -89,12 +91,17 @@ export default function Dashboard() {
     async function fetchData() {
       try {
         setLoading(true);
+        console.log("Buscando dados do Supabase...");
 
-        // Buscar Custos (organizar por categoria localmente para facilitar)
+        // Buscar Custos
         const { data: costsData, error: costsError } = await supabase.from("costs").select("*");
-        if (costsError) throw costsError;
+        if (costsError) {
+          console.error("Erro ao buscar custos:", costsError);
+          throw costsError;
+        }
 
         if (costsData) {
+          console.log("Custos carregados:", costsData.length);
           setFixedCosts(costsData.filter((c) => c.category === "fixed"));
           setVariableCosts(costsData.filter((c) => c.category === "variable"));
           setTaxes(costsData.filter((c) => c.category === "tax"));
@@ -121,8 +128,8 @@ export default function Dashboard() {
         }
 
       } catch (error: any) {
-        console.error("Erro ao carregar dados:", error.message);
-        toast.error("Erro ao carregar dados do banco");
+        console.error("Erro crítico no carregamento:", error);
+        toast.error("Erro ao carregar dados do banco. Verifique o console.");
       } finally {
         setLoading(false);
       }
@@ -140,6 +147,7 @@ export default function Dashboard() {
     }).eq("id", item.id);
 
     if (error) {
+      console.error("Erro ao editar custo:", error);
       toast.error("Erro ao atualizar custo");
       return;
     }
@@ -154,6 +162,7 @@ export default function Dashboard() {
   const handleDeleteCost = async (id: string, category: CostCategory) => {
     const { error } = await supabase.from("costs").delete().eq("id", id);
     if (error) {
+      console.error("Erro ao deletar custo:", error);
       toast.error("Erro ao excluir custo");
       return;
     }
@@ -166,10 +175,12 @@ export default function Dashboard() {
   };
 
   const handleDuplicateCost = async (item: CostItem, category: CostCategory) => {
-    const newItem = { ...item, id: undefined }; // Supabase gera o ID
-    const { data, error } = await supabase.from("costs").insert([{ ...newItem, category }]).select().single();
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { id, ...newItemWithoutId } = item;
+    const { data, error } = await supabase.from("costs").insert([{ ...newItemWithoutId, category }]).select().single();
     
     if (error) {
+      console.error("Erro ao duplicar custo:", error);
       toast.error("Erro ao duplicar custo");
       return;
     }
@@ -183,59 +194,70 @@ export default function Dashboard() {
 
   const handleSubmitNewCost = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log("Iniciando submissão de novo custo:", newCost);
+
     if (!newCost.name.trim()) {
       toast.error("Nome do custo é obrigatório");
       return;
     }
 
-    const { data, error } = await supabase.from("costs").insert([{
-      name: newCost.name,
-      amount: newCost.amount,
-      description: newCost.description,
-      category: newCost.category
-    }]).select().single();
+    try {
+      const { data, error } = await supabase.from("costs").insert([{
+        name: newCost.name,
+        amount: newCost.amount,
+        description: newCost.description,
+        category: newCost.category
+      }]).select().single();
 
-    if (error) {
-      toast.error("Erro ao adicionar custo");
-      return;
+      if (error) {
+        console.error("Erro do Supabase ao inserir custo:", error);
+        toast.error(`Erro: ${error.message}`);
+        return;
+      }
+
+      console.log("Custo inserido com sucesso:", data);
+
+      if (newCost.category === "fixed") setFixedCosts((prev) => [...prev, data]);
+      if (newCost.category === "variable") setVariableCosts((prev) => [...prev, data]);
+      if (newCost.category === "tax") setTaxes((prev) => [...prev, data]);
+      if (newCost.category === "supplier") setSuppliers((prev) => [...prev, data]);
+
+      toast.success("Custo adicionado com sucesso");
+      setIsCostDialogOpen(false);
+      setNewCost({ category: "fixed", name: "", amount: 0, description: "" });
+    } catch (err) {
+      console.error("Erro inesperado ao salvar custo:", err);
+      toast.error("Ocorreu um erro inesperado.");
     }
-
-    if (newCost.category === "fixed") setFixedCosts((prev) => [...prev, data]);
-    if (newCost.category === "variable") setVariableCosts((prev) => [...prev, data]);
-    if (newCost.category === "tax") setTaxes((prev) => [...prev, data]);
-    if (newCost.category === "supplier") setSuppliers((prev) => [...prev, data]);
-
-    toast.success("Custo adicionado com sucesso");
-    setIsCostDialogOpen(false);
-    setNewCost({ category: "fixed", name: "", amount: 0, description: "" });
   };
 
   // --- HANDLERS DE PRODUTOS (SUPABASE) ---
   const handleAddProduct = async (product: Product) => {
     const { data, error } = await supabase.from("products").insert([product]).select().single();
-    if (error) { toast.error("Erro ao adicionar produto"); return; }
+    if (error) { console.error(error); toast.error("Erro ao adicionar produto"); return; }
     setProducts([...products, data]);
     toast.success("Produto adicionado");
   };
 
   const handleEditProduct = async (product: Product) => {
     const { error } = await supabase.from("products").update(product).eq("id", product.id);
-    if (error) { toast.error("Erro ao atualizar produto"); return; }
+    if (error) { console.error(error); toast.error("Erro ao atualizar produto"); return; }
     setProducts(products.map((p) => (p.id === product.id ? product : p)));
     toast.success("Produto atualizado");
   };
 
   const handleDeleteProduct = async (id: string) => {
     const { error } = await supabase.from("products").delete().eq("id", id);
-    if (error) { toast.error("Erro ao excluir produto"); return; }
+    if (error) { console.error(error); toast.error("Erro ao excluir produto"); return; }
     setProducts(products.filter((p) => p.id !== id));
     toast.success("Produto excluído");
   };
 
   const handleDuplicateProduct = async (product: Product) => {
-    const newItem = { ...product, id: undefined };
-    const { data, error } = await supabase.from("products").insert([newItem]).select().single();
-    if (error) { toast.error("Erro ao duplicar produto"); return; }
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { id, ...newItemWithoutId } = product;
+    const { data, error } = await supabase.from("products").insert([newItemWithoutId]).select().single();
+    if (error) { console.error(error); toast.error("Erro ao duplicar produto"); return; }
     setProducts([...products, data]);
     toast.success("Produto duplicado");
   };
@@ -243,27 +265,29 @@ export default function Dashboard() {
   // --- HANDLERS DE DEVOLUÇÕES (SUPABASE) ---
   const handleAddReturn = async (returnItem: Return) => {
     const { data, error } = await supabase.from("returns").insert([returnItem]).select().single();
-    if (error) { toast.error("Erro ao adicionar devolução"); return; }
+    if (error) { console.error(error); toast.error("Erro ao adicionar devolução"); return; }
     setReturns([...returns, data]);
     toast.success("Devolução registrada");
   };
 
   const handleEditReturn = async (returnItem: Return) => {
     const { error } = await supabase.from("returns").update(returnItem).eq("id", returnItem.id);
-    if (error) { toast.error("Erro ao atualizar devolução"); return; }
+    if (error) { console.error(error); toast.error("Erro ao atualizar devolução"); return; }
     setReturns(returns.map((r) => (r.id === returnItem.id ? returnItem : r)));
   };
 
   const handleDeleteReturn = async (id: string) => {
     const { error } = await supabase.from("returns").delete().eq("id", id);
-    if (error) { toast.error("Erro ao excluir devolução"); return; }
+    if (error) { console.error(error); toast.error("Erro ao excluir devolução"); return; }
     setReturns(returns.filter((r) => r.id !== id));
   };
 
   const handleDuplicateReturn = async (returnItem: Return) => {
-    const newItem = { ...returnItem, id: undefined, status: "pending", createdAt: new Date().toISOString() };
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { id, ...newItemWithoutId } = returnItem;
+    const newItem = { ...newItemWithoutId, status: "pending", createdAt: new Date().toISOString() };
     const { data, error } = await supabase.from("returns").insert([newItem]).select().single();
-    if (error) { toast.error("Erro ao duplicar devolução"); return; }
+    if (error) { console.error(error); toast.error("Erro ao duplicar devolução"); return; }
     setReturns([...returns, data]);
   };
 
@@ -280,17 +304,17 @@ export default function Dashboard() {
   };
 
   const handleAddReturnToStock = async (returnItem: Return) => {
-    const newProduct: Product = {
+    const newProduct = {
       name: returnItem.name,
       sku: returnItem.sku,
       color: returnItem.color,
       size: returnItem.size,
       cost: returnItem.cost,
       quantity: returnItem.quantity,
-    } as Product;
+    };
     
     const { data, error } = await supabase.from("products").insert([newProduct]).select().single();
-    if (error) { toast.error("Erro ao adicionar ao estoque"); return; }
+    if (error) { console.error(error); toast.error("Erro ao adicionar ao estoque"); return; }
     setProducts([...products, data]);
     toast.success("Produto retornado ao estoque");
   };
@@ -590,7 +614,12 @@ export default function Dashboard() {
   );
 
   if (loading) {
-    return <div className="flex items-center justify-center min-h-screen">Carregando dados...</div>;
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-background text-white">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mb-4"></div>
+        <p>Conectando ao Supabase...</p>
+      </div>
+    );
   }
 
   return (
