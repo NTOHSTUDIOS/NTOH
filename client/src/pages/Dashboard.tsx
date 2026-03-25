@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { LayoutGrid, List, Plus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
+import { supabase } from "../lib/supabase";
 
 type CostCategory = "fixed" | "variable" | "tax" | "supplier";
 
@@ -74,157 +75,227 @@ export default function Dashboard() {
     description: "",
   });
 
-  // Histórico total (já existia)
+  // Histórico total
   const [costHistory, setCostHistory] = useState<CostHistoryPoint[]>([]);
 
-  // Histórico por categoria (para média 3 meses)
+  // Histórico por categoria
   const [fixedCostHistory, setFixedCostHistory] = useState<CostHistoryPointByCategory[]>([]);
   const [variableCostHistory, setVariableCostHistory] = useState<CostHistoryPointByCategory[]>([]);
 
+  const [loading, setLoading] = useState(true);
+
+  // --- BUSCAR DADOS DO SUPABASE ---
   useEffect(() => {
-    const savedFixedCosts = localStorage.getItem("ntoh_fixed_costs");
-    const savedVariableCosts = localStorage.getItem("ntoh_variable_costs");
-    const savedTaxes = localStorage.getItem("ntoh_taxes");
-    const savedSuppliers = localStorage.getItem("ntoh_suppliers");
+    async function fetchData() {
+      try {
+        setLoading(true);
 
-    const savedProducts = localStorage.getItem("ntoh_products");
-    const savedReturns = localStorage.getItem("ntoh_returns");
-    const savedCostHistory = localStorage.getItem("ntoh_cost_history");
+        // Buscar Custos (organizar por categoria localmente para facilitar)
+        const { data: costsData, error: costsError } = await supabase.from("costs").select("*");
+        if (costsError) throw costsError;
 
-    const savedFixedHistory = localStorage.getItem("ntoh_cost_history_fixed");
-    const savedVariableHistory = localStorage.getItem("ntoh_cost_history_variable");
+        if (costsData) {
+          setFixedCosts(costsData.filter((c) => c.category === "fixed"));
+          setVariableCosts(costsData.filter((c) => c.category === "variable"));
+          setTaxes(costsData.filter((c) => c.category === "tax"));
+          setSuppliers(costsData.filter((c) => c.category === "supplier"));
+        }
 
-    if (savedFixedCosts) setFixedCosts(JSON.parse(savedFixedCosts));
-    if (savedVariableCosts) setVariableCosts(JSON.parse(savedVariableCosts));
-    if (savedTaxes) setTaxes(JSON.parse(savedTaxes));
-    if (savedSuppliers) setSuppliers(JSON.parse(savedSuppliers));
+        // Buscar Produtos
+        const { data: productsData, error: productsError } = await supabase.from("products").select("*");
+        if (productsError) throw productsError;
+        if (productsData) setProducts(productsData);
 
-    if (savedProducts) setProducts(JSON.parse(savedProducts));
+        // Buscar Devoluções
+        const { data: returnsData, error: returnsError } = await supabase.from("returns").select("*");
+        if (returnsError) throw returnsError;
+        if (returnsData) setReturns(returnsData);
 
-    if (savedReturns) {
-      const parsed = JSON.parse(savedReturns) as any[];
+        // Buscar Histórico de Custos
+        const { data: historyData, error: historyError } = await supabase.from("cost_history").select("*").order("date", { ascending: true });
+        if (historyError) throw historyError;
+        if (historyData) {
+          setCostHistory(historyData.map(h => ({ date: h.date, total: h.total })));
+          setFixedCostHistory(historyData.map(h => ({ date: h.date, total: h.fixed_total })));
+          setVariableCostHistory(historyData.map(h => ({ date: h.date, total: h.variable_total })));
+        }
 
-      const migrated: Return[] = parsed
-        .filter((r) => typeof r?.id === "string" && r.id.length > 0)
-        .map((r) => ({
-          id: String(r.id),
-          name: typeof r.name === "string" ? r.name : "",
-          sku: typeof r.sku === "string" ? r.sku : "",
-          color: typeof r.color === "string" ? r.color : "",
-          size: typeof r.size === "string" ? r.size : "",
-          cost: typeof r.cost === "number" ? r.cost : 0,
-          quantity: typeof r.quantity === "number" ? r.quantity : 0,
-          status:
-            r.status === "pending" || r.status === "processing" || r.status === "completed"
-              ? r.status
-              : "pending",
-          reason: typeof r.reason === "string" ? r.reason : "",
-          createdAt:
-            typeof r.createdAt === "string" && r.createdAt.length > 0 ? r.createdAt : new Date().toISOString(),
-        }));
-
-      setReturns(migrated);
+      } catch (error: any) {
+        console.error("Erro ao carregar dados:", error.message);
+        toast.error("Erro ao carregar dados do banco");
+      } finally {
+        setLoading(false);
+      }
     }
 
-    if (savedCostHistory) setCostHistory(JSON.parse(savedCostHistory));
-    if (savedFixedHistory) setFixedCostHistory(JSON.parse(savedFixedHistory));
-    if (savedVariableHistory) setVariableCostHistory(JSON.parse(savedVariableHistory));
+    fetchData();
   }, []);
 
-  useEffect(() => localStorage.setItem("ntoh_fixed_costs", JSON.stringify(fixedCosts)), [fixedCosts]);
-  useEffect(() => localStorage.setItem("ntoh_variable_costs", JSON.stringify(variableCosts)), [variableCosts]);
-  useEffect(() => localStorage.setItem("ntoh_taxes", JSON.stringify(taxes)), [taxes]);
-  useEffect(() => localStorage.setItem("ntoh_suppliers", JSON.stringify(suppliers)), [suppliers]);
+  // --- HANDLERS DE CUSTOS (SUPABASE) ---
+  const handleEditCost = async (item: CostItem, category: CostCategory) => {
+    const { error } = await supabase.from("costs").update({
+      name: item.name,
+      amount: item.amount,
+      description: item.description
+    }).eq("id", item.id);
 
-  useEffect(() => localStorage.setItem("ntoh_products", JSON.stringify(products)), [products]);
-  useEffect(() => localStorage.setItem("ntoh_returns", JSON.stringify(returns)), [returns]);
+    if (error) {
+      toast.error("Erro ao atualizar custo");
+      return;
+    }
 
-  useEffect(() => localStorage.setItem("ntoh_cost_history", JSON.stringify(costHistory)), [costHistory]);
-  useEffect(() => localStorage.setItem("ntoh_cost_history_fixed", JSON.stringify(fixedCostHistory)), [fixedCostHistory]);
-  useEffect(
-    () => localStorage.setItem("ntoh_cost_history_variable", JSON.stringify(variableCostHistory)),
-    [variableCostHistory]
-  );
+    if (category === "fixed") setFixedCosts(prev => prev.map(c => c.id === item.id ? item : c));
+    if (category === "variable") setVariableCosts(prev => prev.map(c => c.id === item.id ? item : c));
+    if (category === "tax") setTaxes(prev => prev.map(c => c.id === item.id ? item : c));
+    if (category === "supplier") setSuppliers(prev => prev.map(c => c.id === item.id ? item : c));
+    toast.success("Custo atualizado");
+  };
 
-  const handleEditFixedCost = (item: CostItem) => setFixedCosts(fixedCosts.map((c) => (c.id === item.id ? item : c)));
-  const handleDeleteFixedCost = (id: string) => setFixedCosts(fixedCosts.filter((c) => c.id !== id));
-  const handleDuplicateFixedCost = (item: CostItem) =>
-    setFixedCosts([...fixedCosts, { ...item, id: Date.now().toString() }]);
+  const handleDeleteCost = async (id: string, category: CostCategory) => {
+    const { error } = await supabase.from("costs").delete().eq("id", id);
+    if (error) {
+      toast.error("Erro ao excluir custo");
+      return;
+    }
 
-  const handleEditVariableCost = (item: CostItem) =>
-    setVariableCosts(variableCosts.map((c) => (c.id === item.id ? item : c)));
-  const handleDeleteVariableCost = (id: string) => setVariableCosts(variableCosts.filter((c) => c.id !== id));
-  const handleDuplicateVariableCost = (item: CostItem) =>
-    setVariableCosts([...variableCosts, { ...item, id: Date.now().toString() }]);
+    if (category === "fixed") setFixedCosts(prev => prev.filter(c => c.id !== id));
+    if (category === "variable") setVariableCosts(prev => prev.filter(c => c.id !== id));
+    if (category === "tax") setTaxes(prev => prev.filter(c => c.id !== id));
+    if (category === "supplier") setSuppliers(prev => prev.filter(c => c.id !== id));
+    toast.success("Custo excluído");
+  };
 
-  const handleEditTax = (item: CostItem) => setTaxes(taxes.map((c) => (c.id === item.id ? item : c)));
-  const handleDeleteTax = (id: string) => setTaxes(taxes.filter((c) => c.id !== id));
-  const handleDuplicateTax = (item: CostItem) => setTaxes([...taxes, { ...item, id: Date.now().toString() }]);
+  const handleDuplicateCost = async (item: CostItem, category: CostCategory) => {
+    const newItem = { ...item, id: undefined }; // Supabase gera o ID
+    const { data, error } = await supabase.from("costs").insert([{ ...newItem, category }]).select().single();
+    
+    if (error) {
+      toast.error("Erro ao duplicar custo");
+      return;
+    }
 
-  const handleEditSupplier = (item: CostItem) => setSuppliers(suppliers.map((c) => (c.id === item.id ? item : c)));
-  const handleDeleteSupplier = (id: string) => setSuppliers(suppliers.filter((c) => c.id !== id));
-  const handleDuplicateSupplier = (item: CostItem) =>
-    setSuppliers([...suppliers, { ...item, id: Date.now().toString() }]);
+    if (category === "fixed") setFixedCosts(prev => [...prev, data]);
+    if (category === "variable") setVariableCosts(prev => [...prev, data]);
+    if (category === "tax") setTaxes(prev => [...prev, data]);
+    if (category === "supplier") setSuppliers(prev => [...prev, data]);
+    toast.success("Custo duplicado");
+  };
 
-  const handleSubmitNewCost = (e: React.FormEvent) => {
+  const handleSubmitNewCost = async (e: React.FormEvent) => {
     e.preventDefault();
-
     if (!newCost.name.trim()) {
       toast.error("Nome do custo é obrigatório");
       return;
     }
 
-    const item: CostItem = {
-      id: Date.now().toString(),
+    const { data, error } = await supabase.from("costs").insert([{
       name: newCost.name,
       amount: newCost.amount,
       description: newCost.description,
-    };
+      category: newCost.category
+    }]).select().single();
 
-    if (newCost.category === "fixed") setFixedCosts((prev) => [...prev, item]);
-    if (newCost.category === "variable") setVariableCosts((prev) => [...prev, item]);
-    if (newCost.category === "tax") setTaxes((prev) => [...prev, item]);
-    if (newCost.category === "supplier") setSuppliers((prev) => [...prev, item]);
+    if (error) {
+      toast.error("Erro ao adicionar custo");
+      return;
+    }
+
+    if (newCost.category === "fixed") setFixedCosts((prev) => [...prev, data]);
+    if (newCost.category === "variable") setVariableCosts((prev) => [...prev, data]);
+    if (newCost.category === "tax") setTaxes((prev) => [...prev, data]);
+    if (newCost.category === "supplier") setSuppliers((prev) => [...prev, data]);
 
     toast.success("Custo adicionado com sucesso");
     setIsCostDialogOpen(false);
     setNewCost({ category: "fixed", name: "", amount: 0, description: "" });
   };
 
-  const handleAddProduct = (product: Product) => setProducts([...products, product]);
-  const handleEditProduct = (product: Product) => setProducts(products.map((p) => (p.id === product.id ? product : p)));
-  const handleDeleteProduct = (id: string) => setProducts(products.filter((p) => p.id !== id));
-  const handleDuplicateProduct = (product: Product) =>
-    setProducts([...products, { ...product, id: Date.now().toString() }]);
+  // --- HANDLERS DE PRODUTOS (SUPABASE) ---
+  const handleAddProduct = async (product: Product) => {
+    const { data, error } = await supabase.from("products").insert([product]).select().single();
+    if (error) { toast.error("Erro ao adicionar produto"); return; }
+    setProducts([...products, data]);
+    toast.success("Produto adicionado");
+  };
 
-  const handleAddReturn = (returnItem: Return) => setReturns([...returns, returnItem]);
-  const handleEditReturn = (returnItem: Return) =>
+  const handleEditProduct = async (product: Product) => {
+    const { error } = await supabase.from("products").update(product).eq("id", product.id);
+    if (error) { toast.error("Erro ao atualizar produto"); return; }
+    setProducts(products.map((p) => (p.id === product.id ? product : p)));
+    toast.success("Produto atualizado");
+  };
+
+  const handleDeleteProduct = async (id: string) => {
+    const { error } = await supabase.from("products").delete().eq("id", id);
+    if (error) { toast.error("Erro ao excluir produto"); return; }
+    setProducts(products.filter((p) => p.id !== id));
+    toast.success("Produto excluído");
+  };
+
+  const handleDuplicateProduct = async (product: Product) => {
+    const newItem = { ...product, id: undefined };
+    const { data, error } = await supabase.from("products").insert([newItem]).select().single();
+    if (error) { toast.error("Erro ao duplicar produto"); return; }
+    setProducts([...products, data]);
+    toast.success("Produto duplicado");
+  };
+
+  // --- HANDLERS DE DEVOLUÇÕES (SUPABASE) ---
+  const handleAddReturn = async (returnItem: Return) => {
+    const { data, error } = await supabase.from("returns").insert([returnItem]).select().single();
+    if (error) { toast.error("Erro ao adicionar devolução"); return; }
+    setReturns([...returns, data]);
+    toast.success("Devolução registrada");
+  };
+
+  const handleEditReturn = async (returnItem: Return) => {
+    const { error } = await supabase.from("returns").update(returnItem).eq("id", returnItem.id);
+    if (error) { toast.error("Erro ao atualizar devolução"); return; }
     setReturns(returns.map((r) => (r.id === returnItem.id ? returnItem : r)));
-  const handleDeleteReturn = (id: string) => setReturns(returns.filter((r) => r.id !== id));
-  const handleDuplicateReturn = (returnItem: Return) =>
-    setReturns([
-      ...returns,
-      { ...returnItem, id: Date.now().toString(), status: "pending", createdAt: new Date().toISOString() },
-    ]);
+  };
 
-  const handleMoveToProcessing = (id: string) =>
+  const handleDeleteReturn = async (id: string) => {
+    const { error } = await supabase.from("returns").delete().eq("id", id);
+    if (error) { toast.error("Erro ao excluir devolução"); return; }
+    setReturns(returns.filter((r) => r.id !== id));
+  };
+
+  const handleDuplicateReturn = async (returnItem: Return) => {
+    const newItem = { ...returnItem, id: undefined, status: "pending", createdAt: new Date().toISOString() };
+    const { data, error } = await supabase.from("returns").insert([newItem]).select().single();
+    if (error) { toast.error("Erro ao duplicar devolução"); return; }
+    setReturns([...returns, data]);
+  };
+
+  const handleMoveToProcessing = async (id: string) => {
+    const { error } = await supabase.from("returns").update({ status: "processing" }).eq("id", id);
+    if (error) return;
     setReturns(returns.map((r) => (r.id === id ? { ...r, status: "processing" } : r)));
-  const handleMoveToCompleted = (id: string) =>
-    setReturns(returns.map((r) => (r.id === id ? { ...r, status: "completed" } : r)));
+  };
 
-  const handleAddReturnToStock = (returnItem: Return) => {
+  const handleMoveToCompleted = async (id: string) => {
+    const { error } = await supabase.from("returns").update({ status: "completed" }).eq("id", id);
+    if (error) return;
+    setReturns(returns.map((r) => (r.id === id ? { ...r, status: "completed" } : r)));
+  };
+
+  const handleAddReturnToStock = async (returnItem: Return) => {
     const newProduct: Product = {
-      id: Date.now().toString(),
       name: returnItem.name,
       sku: returnItem.sku,
       color: returnItem.color,
       size: returnItem.size,
       cost: returnItem.cost,
       quantity: returnItem.quantity,
-    };
-    setProducts([...products, newProduct]);
+    } as Product;
+    
+    const { data, error } = await supabase.from("products").insert([newProduct]).select().single();
+    if (error) { toast.error("Erro ao adicionar ao estoque"); return; }
+    setProducts([...products, data]);
+    toast.success("Produto retornado ao estoque");
   };
 
+  // --- CÁLCULOS ---
   const totalFixedCosts = useMemo(() => fixedCosts.reduce((sum, item) => sum + item.amount, 0), [fixedCosts]);
   const totalVariableCosts = useMemo(() => variableCosts.reduce((sum, item) => sum + item.amount, 0), [variableCosts]);
   const totalTaxes = useMemo(() => taxes.reduce((sum, item) => sum + item.amount, 0), [taxes]);
@@ -232,51 +303,25 @@ export default function Dashboard() {
 
   const totalOperationalCosts = totalFixedCosts + totalVariableCosts + totalTaxes + totalSuppliers;
 
-  const recordTodayCostTotal = (total: number) => {
-    const today = toISODateKey(new Date());
-
-    setCostHistory((prev) => {
-      const next = [...prev];
-      const idx = next.findIndex((p) => p.date === today);
-
-      if (idx >= 0) next[idx] = { date: today, total };
-      else next.push({ date: today, total });
-
-      next.sort((a, b) => a.date.localeCompare(b.date));
-      return next.slice(-90);
-    });
-  };
-
-  const recordTodayCategoryTotals = (fixedTotal: number, variableTotal: number) => {
-    const today = toISODateKey(new Date());
-
-    setFixedCostHistory((prev) => {
-      const next = [...prev];
-      const idx = next.findIndex((p) => p.date === today);
-
-      if (idx >= 0) next[idx] = { date: today, total: fixedTotal };
-      else next.push({ date: today, total: fixedTotal });
-
-      next.sort((a, b) => a.date.localeCompare(b.date));
-      return next.slice(-90);
-    });
-
-    setVariableCostHistory((prev) => {
-      const next = [...prev];
-      const idx = next.findIndex((p) => p.date === today);
-
-      if (idx >= 0) next[idx] = { date: today, total: variableTotal };
-      else next.push({ date: today, total: variableTotal });
-
-      next.sort((a, b) => a.date.localeCompare(b.date));
-      return next.slice(-90);
-    });
-  };
-
+  // Sincronizar Histórico Diário no Supabase
   useEffect(() => {
-    recordTodayCostTotal(totalOperationalCosts);
-    recordTodayCategoryTotals(totalFixedCosts, totalVariableCosts);
-  }, [totalOperationalCosts, totalFixedCosts, totalVariableCosts]);
+    if (loading) return;
+
+    const syncHistory = async () => {
+      const today = toISODateKey(new Date());
+      const { error } = await supabase.from("cost_history").upsert({
+        date: today,
+        total: totalOperationalCosts,
+        fixed_total: totalFixedCosts,
+        variable_total: totalVariableCosts
+      }, { onConflict: 'date' });
+
+      if (error) console.error("Erro ao sincronizar histórico:", error.message);
+    };
+
+    const timeoutId = setTimeout(syncHistory, 2000); // Debounce de 2s
+    return () => clearTimeout(timeoutId);
+  }, [totalOperationalCosts, totalFixedCosts, totalVariableCosts, loading]);
 
   const costHistoryChartData = useMemo(() => {
     return costHistory.map((p) => ({
@@ -301,9 +346,9 @@ export default function Dashboard() {
     totalVariableCosts === 0 ? ZERO_VALUE_CLASS : isVariableAboveAvgBy5 ? "text-red-400" : LIGHT_BLUE_VALUE_CLASS;
 
   const taxValueClass = totalTaxes === 0 ? ZERO_VALUE_CLASS : LIGHT_BLUE_VALUE_CLASS;
-
   const supplierValueClass = "text-red-400";
 
+  // --- RENDERIZAÇÃO ---
   const renderBilling = () => (
     <div className="space-y-6">
       <Billing fixedCosts={fixedCosts} variableCosts={variableCosts} products={products} />
@@ -495,36 +540,36 @@ export default function Dashboard() {
         <CostForm
           title="Custos Fixos"
           costs={fixedCosts}
-          onEditCost={handleEditFixedCost}
-          onDeleteCost={handleDeleteFixedCost}
-          onDuplicateCost={handleDuplicateFixedCost}
+          onEditCost={(item) => handleEditCost(item, "fixed")}
+          onDeleteCost={(id) => handleDeleteCost(id, "fixed")}
+          onDuplicateCost={(item) => handleDuplicateCost(item, "fixed")}
           viewMode={costsViewMode}
         />
 
         <CostForm
           title="Custos Variáveis"
           costs={variableCosts}
-          onEditCost={handleEditVariableCost}
-          onDeleteCost={handleDeleteVariableCost}
-          onDuplicateCost={handleDuplicateVariableCost}
+          onEditCost={(item) => handleEditCost(item, "variable")}
+          onDeleteCost={(id) => handleDeleteCost(id, "variable")}
+          onDuplicateCost={(item) => handleDuplicateCost(item, "variable")}
           viewMode={costsViewMode}
         />
 
         <CostForm
           title="Impostos"
           costs={taxes}
-          onEditCost={handleEditTax}
-          onDeleteCost={handleDeleteTax}
-          onDuplicateCost={handleDuplicateTax}
+          onEditCost={(item) => handleEditCost(item, "tax")}
+          onDeleteCost={(id) => handleDeleteCost(id, "tax")}
+          onDuplicateCost={(item) => handleDuplicateCost(item, "tax")}
           viewMode={costsViewMode}
         />
 
         <CostForm
           title="Fornecedores"
           costs={suppliers}
-          onEditCost={handleEditSupplier}
-          onDeleteCost={handleDeleteSupplier}
-          onDuplicateCost={handleDuplicateSupplier}
+          onEditCost={(item) => handleEditCost(item, "supplier")}
+          onDeleteCost={(id) => handleDeleteCost(id, "supplier")}
+          onDuplicateCost={(item) => handleDuplicateCost(item, "supplier")}
           viewMode={costsViewMode}
         />
       </div>
@@ -543,6 +588,10 @@ export default function Dashboard() {
       onAddToStock={handleAddReturnToStock}
     />
   );
+
+  if (loading) {
+    return <div className="flex items-center justify-center min-h-screen">Carregando dados...</div>;
+  }
 
   return (
     <div className="min-h-screen bg-background flex">
