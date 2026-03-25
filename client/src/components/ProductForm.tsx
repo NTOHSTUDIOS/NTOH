@@ -32,10 +32,10 @@ export interface Product {
 }
 
 interface ProductFormProps {
-  onAddProduct: (product: Product) => void;
-  onEditProduct: (product: Product) => void;
-  onDeleteProduct: (id: string) => void;
-  onDuplicateProduct: (product: Product) => void;
+  onAddProduct: (product: Product) => Promise<void>; // Alterado para Promise<void>
+  onEditProduct: (product: Product) => Promise<void>; // Alterado para Promise<void>
+  onDeleteProduct: (id: string) => Promise<void>; // Alterado para Promise<void>
+  onDuplicateProduct: (product: Product) => Promise<void>; // Alterado para Promise<void>
   products: Product[];
 }
 
@@ -60,7 +60,7 @@ export function ProductForm({
     quantity: 0,
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => { // Adicionado 'async'
     e.preventDefault();
 
     if (!formData.name.trim() || !formData.sku.trim()) {
@@ -69,11 +69,14 @@ export function ProductForm({
     }
 
     if (editingId) {
-      onEditProduct({ ...formData, id: editingId });
-      toast.success("Produto atualizado");
+      await onEditProduct({ ...formData, id: editingId }); // Adicionado 'await'
+
     } else {
-      onAddProduct({ ...formData, id: Date.now().toString() });
-      toast.success("Produto adicionado");
+      // É importante que o ID seja gerado pelo Supabase ou retornado por ele
+      // Para simplificar, vamos passar um ID temporário e esperar que o Supabase retorne o ID real
+      // ou que o dashboard.tsx lide com a atualização do estado com o ID correto.
+      // No entanto, para o problema atual, o principal é aguardar a operação.
+      await onAddProduct(formData as Product); // Remove a geração de ID aqui, o Supabase irá gerar. O 'as Product' é para satisfazer o tipo, já que o ID será gerado.
     }
 
     setFormData({
@@ -317,75 +320,108 @@ export function ProductForm({
                   <p className="text-xs text-muted-foreground">SKU: {product.sku}</p>
                 </div>
 
-                <div className="flex justify-between items-center pt-2 border-t">
-                  <div>
-                    <p className="text-white font-medium">Qtd: {product.quantity}</p>
-                    <p className="text-sm font-semibold text-primary">
-                      R$ {(product.cost * product.quantity).toFixed(2)}
-                    </p>
-                  </div>
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-muted-foreground">
+                    Custo: <span className="font-medium text-white">{formatBRL(product.cost)}</span>
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Qtd: <span className="font-medium text-white">{product.quantity}</span>
+                  </p>
+                </div>
 
-                  <div className="flex gap-1">
-                    <Button size="sm" variant="ghost" onClick={() => handleEdit(product)}>
-                      <Edit2 className="w-3 h-3" />
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => onDuplicateProduct(product)}>
-                      <Copy className="w-3 h-3" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => {
-                        onDeleteProduct(product.id);
-                        toast.success("Produto removido");
-                      }}
-                      className="text-red-400"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </Button>
-                  </div>
+                {product.color && (
+                  <p className="text-sm text-muted-foreground">
+                    Cor: <span className="font-medium text-white">{product.color}</span>
+                  </p>
+                )}
+                {product.size && (
+                  <p className="text-sm text-muted-foreground">
+                    Tamanho: <span className="font-medium text-white">{product.size}</span>
+                  </p>
+                )}
+
+                <div className="flex gap-2 pt-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => handleEdit(product)}
+                  >
+                    <Edit2 className="w-4 h-4 mr-2" /> Editar
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => onDeleteProduct(product.id)}
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" /> Excluir
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => onDuplicateProduct(product)}
+                  >
+                    <Copy className="w-4 h-4 mr-2" /> Duplicar
+                  </Button>
                 </div>
               </CardContent>
             </Card>
           ))}
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-3">
           {filteredProducts.map((product) => (
             <Card key={product.id} className={productCardClass}>
-              <CardContent className="py-3 flex justify-between items-center">
-                <div>
-                  <p className="font-medium">{product.name}</p>
-
-                  <div className="flex flex-wrap gap-6 mt-1">
-                    <span className="text-sm text-muted-foreground">SKU: {product.sku}</span>
-
-                    <span className="text-sm font-medium text-white">Qtd: {product.quantity}</span>
-
-                    <span className="text-sm font-semibold text-primary">
-                      R$ {(product.cost * product.quantity).toFixed(2)}
-                    </span>
+              <CardContent className="pt-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium">{product.name}</p>
+                    <p className="text-xs text-muted-foreground">SKU: {product.sku}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleEdit(product)}
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onDeleteProduct(product.id)}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onDuplicateProduct(product)}
+                    >
+                      <Copy className="w-4 h-4" />
+                    </Button>
                   </div>
                 </div>
 
-                <div className="flex gap-2">
-                  <Button size="sm" variant="ghost" onClick={() => handleEdit(product)}>
-                    <Edit2 className="w-4 h-4" />
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => onDuplicateProduct(product)}>
-                    <Copy className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => {
-                      onDeleteProduct(product.id);
-                      toast.success("Produto removido");
-                    }}
-                    className="text-red-400"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
+                <div className="grid grid-cols-2 gap-y-1">
+                  <p className="text-sm text-muted-foreground">
+                    Custo: <span className="font-medium text-white">{formatBRL(product.cost)}</span>
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Qtd: <span className="font-medium text-white">{product.quantity}</span>
+                  </p>
+                  {product.color && (
+                    <p className="text-sm text-muted-foreground">
+                      Cor: <span className="font-medium text-white">{product.color}</span>
+                    </p>
+                  )}
+                  {product.size && (
+                    <p className="text-sm text-muted-foreground">
+                      Tamanho: <span className="font-medium text-white">{product.size}</span>
+                    </p>
+                  )}
                 </div>
               </CardContent>
             </Card>
