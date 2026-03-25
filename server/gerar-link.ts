@@ -5,42 +5,33 @@ import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-dotenv.config({ path: path.resolve(__dirname, '../.env') });
+dotenv.config({ path: path.resolve(__dirname, '..', '.env') }); // Sandbox vars
 
 const partnerId = process.env.SHOPEE_PARTNER_ID?.trim() || '';
 const partnerKeyRaw = process.env.SHOPEE_PARTNER_KEY?.trim() || '';
-const baseUrl = "https://partner.test-stable.shopeemobile.com";
-const pathApi = "/api/v2/shop/auth_partner";
-const redirectUrl = "https://ntoh-automacao.vercel.app";
+const baseUrl = 'https://openplatform.sandbox.test-stable.shopee.com.br'; // BR sandbox
+const pathAuth = '/api/v2/shop/auth/partner/get_token'; // Correto pra token
+const redirectUrl = 'https://ntoh-automacao.vercel.app/api/shopee/auth/callback';
 
-async function generateLinks() {
-    // Usamos o horário do seu PC, mas arredondado
-    const timestamp = Math.floor(Date.now() / 1000);
-    const baseString = `${partnerId}${pathApi}${timestamp}`;
-
-    // Função para gerar o link com uma chave específica
-    const createUrl = (key: string) => {
-        const sign = crypto.createHmac('sha256', key).update(baseString).digest('hex');
-        const url = new URL(baseUrl + pathApi);
-        url.searchParams.append("partner_id", partnerId);
-        url.searchParams.append("timestamp", timestamp.toString());
-        url.searchParams.append("sign", sign);
-        url.searchParams.append("redirect", redirectUrl);
-        return url.toString();
-    };
-
-    console.log("--- 🕵️‍♂️ TESTE DE ASSINATURA ---");
-    console.log("ID:", partnerId);
-    console.log("Timestamp usado:", timestamp);
-    
-    console.log("\n🔴 OPÇÃO A (Usando a chave EXATAMENTE como está no .env):");
-    console.log(createUrl(partnerKeyRaw));
-
-    const cleanKey = partnerKeyRaw.replace('shpk', '');
-    console.log("\n🔵 OPÇÃO B (Removendo o prefixo 'shpk'):");
-    console.log(createUrl(cleanKey));
-
-    console.log("\n⚠️ DICA: Se ambos falharem, verifique se o relógio do seu Windows está 'Sincronizado' nas configurações de Data e Hora.");
+if (!partnerId || !partnerKeyRaw) {
+  console.error('❌ Vars vazias no .env');
+  process.exit(1);
 }
 
-generateLinks();
+const timestamp = Math.floor(Date.now() / 1000).toString();
+const body = JSON.stringify({ shop_id: process.env.SHOPEE_SHOP_ID }); // Shop sandbox
+
+const createSignUrl = (key: string) => {
+  const baseString = timestamp + partnerId + pathAuth + body;
+  const sign = crypto.createHmac('sha256', key).update(baseString).digest('hex');
+  const url = `${baseUrl}${pathAuth}?partner_id=${partnerId}&timestamp=${timestamp}&sign=${sign}`;
+  return url;
+};
+
+console.log('🔗 LINK TOKEN SANDBOX BR (cole code novo em get-token.ts):');
+console.log(createSignUrl(partnerKeyRaw)); // Chave completa
+
+const cleanKey = partnerKeyRaw.replace(/^shpk/, '');
+console.log('\n🔗 LINK com chave limpa (sem shpk):');
+console.log(createSignUrl(cleanKey));
+console.log('\n📋 Abra > autorize sandbox > cole code FRESH linha 19 get-token.ts');

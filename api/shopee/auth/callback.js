@@ -50,4 +50,4 @@ export default async function handler(req, res) {
     console.error('CALLBACK ERROR:', error.message);
     res.status(500).send(`Erro: ${error.message}`);
   }
-}
+} 
