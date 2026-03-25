@@ -1,5 +1,6 @@
 // client/src/pages/Dashboard.tsx
 import { useState, useEffect, useMemo } from "react";
+// AJUSTE DE IMPORTAÇÃO: Usando export nomeado (com chaves) conforme erro no VS Code
 import { Sidebar } from "../components/Sidebar";
 import { CostForm, type CostItem } from "../components/CostForm";
 import { ProductForm, type Product } from "../components/ProductForm";
@@ -56,8 +57,9 @@ function avgFromHistoryLastNDays(history: CostHistoryPointByCategory[], nDays: n
 }
 
 export default function Dashboard() {
-  console.log("Dashboard Renderizado - Verificando conexão Supabase...");
-  
+  // LOG PARA CONFIRMAR QUE O COMPONENTE CARREGOU NO LOCALHOST
+  console.log("Dashboard vFinal: Carregado com sucesso!");
+
   const [activeModule, setActiveModule] = useState("sales");
 
   const [fixedCosts, setFixedCosts] = useState<CostItem[]>([]);
@@ -91,17 +93,13 @@ export default function Dashboard() {
     async function fetchData() {
       try {
         setLoading(true);
-        console.log("Buscando dados do Supabase...");
+        console.log("Iniciando busca de dados no Supabase...");
 
         // Buscar Custos
         const { data: costsData, error: costsError } = await supabase.from("costs").select("*");
-        if (costsError) {
-          console.error("Erro ao buscar custos:", costsError);
-          throw costsError;
-        }
+        if (costsError) throw costsError;
 
         if (costsData) {
-          console.log("Custos carregados:", costsData.length);
           setFixedCosts(costsData.filter((c) => c.category === "fixed"));
           setVariableCosts(costsData.filter((c) => c.category === "variable"));
           setTaxes(costsData.filter((c) => c.category === "tax"));
@@ -127,9 +125,10 @@ export default function Dashboard() {
           setVariableCostHistory(historyData.map(h => ({ date: h.date, total: h.variable_total })));
         }
 
+        console.log("Dados carregados com sucesso!");
       } catch (error: any) {
-        console.error("Erro crítico no carregamento:", error);
-        toast.error("Erro ao carregar dados do banco. Verifique o console.");
+        console.error("Erro ao carregar dados do Supabase:", error.message);
+        toast.error("Erro ao conectar com o banco de dados.");
       } finally {
         setLoading(false);
       }
@@ -147,7 +146,7 @@ export default function Dashboard() {
     }).eq("id", item.id);
 
     if (error) {
-      console.error("Erro ao editar custo:", error);
+      console.error("Erro ao atualizar custo:", error);
       toast.error("Erro ao atualizar custo");
       return;
     }
@@ -162,7 +161,7 @@ export default function Dashboard() {
   const handleDeleteCost = async (id: string, category: CostCategory) => {
     const { error } = await supabase.from("costs").delete().eq("id", id);
     if (error) {
-      console.error("Erro ao deletar custo:", error);
+      console.error("Erro ao excluir custo:", error);
       toast.error("Erro ao excluir custo");
       return;
     }
@@ -194,41 +193,36 @@ export default function Dashboard() {
 
   const handleSubmitNewCost = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Iniciando submissão de novo custo:", newCost);
+    console.log("Enviando novo custo para o Supabase...");
 
     if (!newCost.name.trim()) {
       toast.error("Nome do custo é obrigatório");
       return;
     }
 
-    try {
-      const { data, error } = await supabase.from("costs").insert([{
-        name: newCost.name,
-        amount: newCost.amount,
-        description: newCost.description,
-        category: newCost.category
-      }]).select().single();
+    const { data, error } = await supabase.from("costs").insert([{
+      name: newCost.name,
+      amount: newCost.amount,
+      description: newCost.description,
+      category: newCost.category
+    }]).select().single();
 
-      if (error) {
-        console.error("Erro do Supabase ao inserir custo:", error);
-        toast.error(`Erro: ${error.message}`);
-        return;
-      }
-
-      console.log("Custo inserido com sucesso:", data);
-
-      if (newCost.category === "fixed") setFixedCosts((prev) => [...prev, data]);
-      if (newCost.category === "variable") setVariableCosts((prev) => [...prev, data]);
-      if (newCost.category === "tax") setTaxes((prev) => [...prev, data]);
-      if (newCost.category === "supplier") setSuppliers((prev) => [...prev, data]);
-
-      toast.success("Custo adicionado com sucesso");
-      setIsCostDialogOpen(false);
-      setNewCost({ category: "fixed", name: "", amount: 0, description: "" });
-    } catch (err) {
-      console.error("Erro inesperado ao salvar custo:", err);
-      toast.error("Ocorreu um erro inesperado.");
+    if (error) {
+      console.error("Erro ao inserir custo:", error);
+      toast.error(`Erro ao salvar: ${error.message}`);
+      return;
     }
+
+    console.log("Custo salvo com sucesso:", data);
+
+    if (newCost.category === "fixed") setFixedCosts((prev) => [...prev, data]);
+    if (newCost.category === "variable") setVariableCosts((prev) => [...prev, data]);
+    if (newCost.category === "tax") setTaxes((prev) => [...prev, data]);
+    if (newCost.category === "supplier") setSuppliers((prev) => [...prev, data]);
+
+    toast.success("Custo adicionado com sucesso");
+    setIsCostDialogOpen(false);
+    setNewCost({ category: "fixed", name: "", amount: 0, description: "" });
   };
 
   // --- HANDLERS DE PRODUTOS (SUPABASE) ---
@@ -516,8 +510,7 @@ export default function Dashboard() {
                     type="number"
                     step="0.01"
                     value={newCost.amount}
-                    onChange={(e) => setNewCost((p) => ({ ...p, amount: parseFloat(e.target.value) || 0 }))}
-                    placeholder="0.00"
+                    onChange={(e) => setNewCost((p) => ({ ...p, amount: Number(e.target.value) }))}
                   />
                 </div>
 
