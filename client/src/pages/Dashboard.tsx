@@ -57,8 +57,24 @@ function avgFromHistoryLastNDays(history: CostHistoryPointByCategory[], nDays: n
 }
 
 export default function Dashboard() {
-  // LOG PARA CONFIRMAR QUE O COMPONENTE CARREGOU NO LOCALHOST
+    // LOG PARA CONFIRMAR QUE O COMPONENTE CARREGOU NO LOCALHOST
   console.log("Dashboard vFinal: Carregado com sucesso!");
+
+  const [session, setSession] = useState<any>(null);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setSession(session);
+      }
+    );
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const [activeModule, setActiveModule] = useState("sales");
 
@@ -78,6 +94,19 @@ export default function Dashboard() {
     amount: 0,
     description: "",
   });
+  const refetchProducts = async () => {
+  if (!session?.user) return;
+  const { data, error } = await supabase
+    .from('products')
+    .select('*')
+    .eq('user_id', session.user.id)
+    .order('created_at', { ascending: false });
+  if (error) {
+    toast.error('Erro ao recarregar: ' + error.message);
+  } else {
+    setProducts(data || []);
+  }
+};
 
   // Histórico total
   const [costHistory, setCostHistory] = useState<CostHistoryPoint[]>([]);
@@ -89,53 +118,70 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
 
   // --- BUSCAR DADOS DO SUPABASE ---
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        setLoading(true);
-        console.log("Iniciando busca de dados no Supabase...");
-
-        // Buscar Custos
-        const { data: costsData, error: costsError } = await supabase.from("costs").select("*");
-        if (costsError) throw costsError;
-
-        if (costsData) {
-          setFixedCosts(costsData.filter((c) => c.category === "fixed"));
-          setVariableCosts(costsData.filter((c) => c.category === "variable"));
-          setTaxes(costsData.filter((c) => c.category === "tax"));
-          setSuppliers(costsData.filter((c) => c.category === "supplier"));
-        }
-
-        // Buscar Produtos
-        const { data: productsData, error: productsError } = await supabase.from("products").select("*");
-        if (productsError) throw productsError;
-        if (productsData) setProducts(productsData);
-
-        // Buscar Devoluções
-        const { data: returnsData, error: returnsError } = await supabase.from("returns").select("*");
-        if (returnsError) throw returnsError;
-        if (returnsData) setReturns(returnsData);
-
-        // Buscar Histórico de Custos
-        const { data: historyData, error: historyError } = await supabase.from("cost_history").select("*").order("date", { ascending: true });
-        if (historyError) throw historyError;
-        if (historyData) {
-          setCostHistory(historyData.map(h => ({ date: h.date, total: h.total })));
-          setFixedCostHistory(historyData.map(h => ({ date: h.date, total: h.fixed_total })));
-          setVariableCostHistory(historyData.map(h => ({ date: h.date, total: h.variable_total })));
-        }
-
-        console.log("Dados carregados com sucesso!");
-      } catch (error: any) {
-        console.error("Erro ao carregar dados do Supabase:", error.message);
-        toast.error("Erro ao conectar com o banco de dados.");
-      } finally {
-        setLoading(false);
-      }
+ useEffect(() => {
+  async function fetchData() {
+    if (!session?.user) {
+      console.log("Session null, aguardando login...");
+      return;
     }
 
-    fetchData();
-  }, []);
+    try {
+      setLoading(true);
+      console.log("Iniciando busca de dados no Supabase...");
+
+      // Buscar Custos
+      const { data: costsData, error: costsError } = await supabase
+        .from("costs")
+        .select("*")
+        .eq('user_id', session.user.id);
+      if (costsError) throw costsError;
+      if (costsData) {
+        setFixedCosts(costsData.filter((c) => c.category === "fixed"));
+        setVariableCosts(costsData.filter((c) => c.category === "variable"));
+        setTaxes(costsData.filter((c) => c.category === "tax"));
+        setSuppliers(costsData.filter((c) => c.category === "supplier"));
+      }
+
+      // Buscar Produtos
+      const { data: productsData, error: productsError } = await supabase
+        .from("products")
+        .select("*")
+        .eq('user_id', session.user.id);
+      if (productsError) throw productsError;
+      if (productsData) setProducts(productsData);
+
+      // Buscar Devoluções
+      const { data: returnsData, error: returnsError } = await supabase
+        .from("returns")
+        .select("*")
+        .eq('user_id', session.user.id);
+      if (returnsError) throw returnsError;
+      if (returnsData) setReturns(returnsData);
+
+      // Buscar Histórico de Custos
+      const { data: historyData, error: historyError } = await supabase
+        .from("cost_history")
+        .select("*")
+        .eq('user_id', session.user.id)
+        .order("date", { ascending: true });
+      if (historyError) throw historyError;
+      if (historyData) {
+        setCostHistory(historyData.map(h => ({ date: h.date, total: h.total })));
+        setFixedCostHistory(historyData.map(h => ({ date: h.date, total: h.fixed_total })));
+        setVariableCostHistory(historyData.map(h => ({ date: h.date, total: h.variable_total })));
+      }
+
+      console.log("Dados carregados com sucesso!");
+    } catch (error: any) {
+      console.error("Erro ao carregar dados do Supabase:", error.message);
+      toast.error("Erro ao conectar com o banco de dados.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  fetchData();
+}, [session]);  // Recarrega após login
 
   // --- HANDLERS DE CUSTOS (SUPABASE) ---
   const handleEditCost = async (item: CostItem, category: CostCategory) => {
@@ -226,15 +272,21 @@ export default function Dashboard() {
   };
 
   // --- HANDLERS DE PRODUTOS (SUPABASE) ---
-  const handleAddProduct = async (product: Product) => {
-    // Supabase deve gerar o ID automaticamente. Removemos a geração manual de ID aqui.
-    // Garante que o ID não seja enviado para o Supabase, permitindo que ele gere um novo.
-    const { id, ...productWithoutId } = product;
-    const { data, error } = await supabase.from("products").insert([productWithoutId]).select().single();
-    if (error) { console.error(error); toast.error("Erro ao adicionar produto"); return; }
-    setProducts([...products, data]);
-    toast.success("Produto adicionado");
-  };
+  const handleAddProduct = async (productData: Omit<Product, 'id'>) => {
+  if (!session?.user) {
+    toast.error('Faça login primeiro!');
+    return;
+  }
+  const { error } = await supabase
+    .from('products')
+    .insert({ ...productData, user_id: session.user.id });
+  if (error) {
+    toast.error('Erro ao adicionar: ' + error.message);
+  } else {
+    toast.success('Produto adicionado!');
+    refetchProducts();  // UI atualiza sem F5
+  }
+};
 
   const handleEditProduct = async (product: Product) => {
     const { error } = await supabase.from("products").update(product).eq("id", product.id);

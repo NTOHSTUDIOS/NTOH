@@ -6,7 +6,7 @@ import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { TrendingUp, Eye, EyeOff } from "lucide-react";
-import { login } from "../lib/auth";
+import { supabase } from "../lib/supabase";
 import { toast } from "sonner";
 
 export default function Login() {
@@ -21,11 +21,19 @@ export default function Login() {
     setLoading(true);
 
     try {
-      await login(email, password);
-      toast.success("Login realizado com sucesso!");
-      setLocation("/app");
-    } catch (error) {
-      toast.error("Erro no login. Tente novamente.");
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) throw error;
+
+      if (data.user) {
+        toast.success("Login realizado com sucesso!");
+        setLocation("/app");
+      }
+    } catch (error: any) {
+      toast.error("Erro no login: " + error.message);
     } finally {
       setLoading(false);
     }
