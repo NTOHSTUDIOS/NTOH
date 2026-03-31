@@ -16,11 +16,13 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // 🔍 DEBUG: Verifica supabase client no mount
+   // 🔍 DEBUG: Verifica supabase client no mount
   useEffect(() => {
     console.log('🔍 Supabase client:', supabase);
-    console.log('🔍 Env URL:', process.env.NEXT_PUBLIC_SUPABASE_URL);
+    // Alterado de process.env para import.meta.env
+    console.log('🔍 Env URL:', import.meta.env.VITE_SUPABASE_URL);
   }, []);
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
