@@ -1,12 +1,12 @@
 // client/src/pages/Login.tsx
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useLocation } from "wouter";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { TrendingUp, Eye, EyeOff } from "lucide-react";
-import { supabase } from "../lib/supabase";
+import { login } from "../lib/auth";
 import { toast } from "sonner";
 
 export default function Login() {
@@ -16,35 +16,16 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
-   // 🔍 DEBUG: Verifica supabase client no mount
-  useEffect(() => {
-    console.log('🔍 Supabase client:', supabase);
-    // Alterado de process.env para import.meta.env
-    console.log('🔍 Env URL:', import.meta.env.VITE_SUPABASE_URL);
-  }, []);
-
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('🔍 Login clicado! Email:', email); // Debug F12
     setLoading(true);
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-      console.log('🔍 Supabase response:', data, error); // Vê erro aqui
-
-      if (error) throw error;
-
-      if (data.user) {
-        toast.success("Login realizado com sucesso!");
-        setLocation("/app");
-      }
-    } catch (error: any) {
-      console.error('🔍 Login erro completo:', error);
-      toast.error("Erro no login: " + error.message);
+      await login(email, password);
+      toast.success("Login realizado com sucesso!");
+      setLocation("/app");
+    } catch (error) {
+      toast.error("Erro no login. Tente novamente.");
     } finally {
       setLoading(false);
     }
