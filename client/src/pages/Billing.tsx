@@ -23,10 +23,25 @@ import {
   YAxis,
 } from "recharts";
 
+// Interface atualizada para suportar variações
+interface ProductVariation {
+  id: string;
+  sku: string;
+  name: string;
+  quantity: number;
+}
+
+interface Product {
+  id: string;
+  name: string;
+  cost: number;
+  variations: ProductVariation[];
+}
+
 interface BillingProps {
   fixedCosts: Array<{ id: string; name: string; amount: number }>;
   variableCosts: Array<{ id: string; name: string; amount: number }>;
-  products: Array<{ id: string; name: string; cost: number; quantity: number }>;
+  products: Product[];
 }
 
 type PeriodPreset = "24H" | "7D" | "30D" | "3M" | "6M" | "12M" | "CUSTOM";
@@ -152,12 +167,18 @@ export default function Billing({ fixedCosts, variableCosts, products }: Billing
   const totalCosts = includeOperationalCosts ? cogsProducts + operationalCosts : cogsProducts;
   const totalProfit = totalRevenue - totalCosts;
 
-  // ✅ Agora é número (não string) para facilitar regras
   const profitPercentageNum = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
   const profitPercentage = profitPercentageNum.toFixed(1);
 
-  const averageProductCost =
-    products.length > 0 ? products.reduce((sum, p) => sum + p.cost * p.quantity, 0) / products.length : 0;
+  // Ajustado para somar quantidades de todas as variações
+  const averageProductCost = useMemo(() => {
+    if (products.length === 0) return 0;
+    const totalInventoryValue = products.reduce((sum, p) => {
+      const totalQty = p.variations.reduce((vSum, v) => vSum + v.quantity, 0);
+      return sum + p.cost * totalQty;
+    }, 0);
+    return totalInventoryValue / products.length;
+  }, [products]);
 
   const financialData = [
     { name: "Faturamento", value: totalRevenue },
@@ -165,13 +186,11 @@ export default function Billing({ fixedCosts, variableCosts, products }: Billing
     { name: "Despesas", value: totalCosts },
   ];
 
-  // ✅ Regra de cor do card Margem
   const getMarginValueClass = (pct: number) => {
     if (pct === 0) return "text-white";
     if (pct < 0) return "text-red-400";
     if (pct >= 1 && pct <= 12) return "text-yellow-400";
     if (pct >= 13) return "text-emerald-400";
-    // pega casos como 0.1% a 0.9% (não caiu no range 1..12)
     return "text-yellow-400";
   };
 
@@ -279,117 +298,139 @@ export default function Billing({ fixedCosts, variableCosts, products }: Billing
           </div>
         </div>
 
-        <div className="flex items-center gap-4 z-10 bg-black/20 p-2 px-4 rounded-2xl border border-white/5">
-          <div className="flex flex-col items-end">
-            <Label htmlFor="profit-mode" className="text-[10px] uppercase tracking-widest text-primary font-bold mb-1">
-              {includeOperationalCosts ? "Modo Full" : "Modo Lite"}
-            </Label>
-            <Switch
-              id="profit-mode"
-              checked={includeOperationalCosts}
-              onCheckedChange={setIncludeOperationalCosts}
-              className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-cyan-600 shadow-inner"
-            />
-          </div>
-          <div className="h-8 w-[1px] bg-white/10 mx-1" />
-          <div className="flex items-center gap-2">
-            {includeOperationalCosts ? (
-              <div className="flex items-center gap-1.5 bg-primary/10 px-3 py-1.5 rounded-xl border border-primary/20">
-                <Zap className="h-3.5 w-3.5 text-primary animate-pulse" />
-                <span className="text-[11px] font-bold text-primary uppercase">Real</span>
-              </div>
-            ) : (
-              <div className="flex items-center gap-1.5 bg-cyan-500/10 px-3 py-1.5 rounded-xl border border-cyan-500/20">
-                <Rocket className="h-3.5 w-3.5 text-cyan-400" />
-                <span className="text-[11px] font-bold text-cyan-300 uppercase">Vendas</span>
-              </div>
-            )}
-          </div>
+        <div className="flex items-center gap-3 z-10 bg-black/20 p-2 rounded-2xl border border-white/5">
+          <Label htmlFor="costs-toggle" className="text-xs font-medium text-muted-foreground">
+            Incluir Gastos Operacionais
+          </Label>
+          <Switch id="costs-toggle" checked={includeOperationalCosts} onCheckedChange={setIncludeOperationalCosts} />
         </div>
       </div>
 
-      {/* KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      {/* Cards de resumo */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className={cardClass}>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm text-white">Faturamento</CardTitle>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Receita Bruta</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold text-emerald-400">{formatBRL(totalRevenue)}</p>
+            <div className="text-2xl font-bold text-white">{formatBRL(totalRevenue)}</div>
+            <p className="text-xs text-emerald-400 mt-1">Total de vendas no período</p>
           </CardContent>
         </Card>
 
         <Card className={cardClass}>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm text-white">Lucro Líquido</CardTitle>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Lucro Líquido</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold text-emerald-400">{formatBRL(totalProfit)}</p>
+            <div className={`text-2xl font-bold ${totalProfit >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+              {formatBRL(totalProfit)}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">Após descontar custos</p>
           </CardContent>
         </Card>
 
         <Card className={cardClass}>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm text-white">Ticket Médio</CardTitle>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Margem de Lucro</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold text-slate-100">{formatBRL(averageProductCost)}</p>
+            <div className={`text-2xl font-bold ${marginValueClass}`}>{profitPercentage}%</div>
+            <p className="text-xs text-muted-foreground mt-1">Eficiência da operação</p>
           </CardContent>
         </Card>
 
         <Card className={cardClass}>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm text-white">Despesas Totais</CardTitle>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Custo Operacional</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold text-red-400">{formatBRL(totalCosts)}</p>
-          </CardContent>
-        </Card>
-
-        <Card className={cardClass}>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm text-white">Margem</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className={`text-3xl font-bold ${marginValueClass}`}>{profitPercentage}%</p>
+            <div className="text-2xl font-bold text-red-400">{formatBRL(totalCosts)}</div>
+            <p className="text-xs text-muted-foreground mt-1">Total investido/gasto</p>
           </CardContent>
         </Card>
       </div>
 
       {/* Gráficos */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card className={cardClass}>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card className="lg:col-span-2 bg-card/50 border-primary/20">
           <CardHeader>
-            <CardTitle className="text-primary">Performance de Vendas</CardTitle>
+            <CardTitle className="text-base font-semibold flex items-center gap-2">
+              <Zap className="w-4 h-4 text-primary" /> Desempenho de Vendas
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={revenueData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-                <XAxis dataKey="label" stroke="#94a3b8" fontSize={12} />
-                <YAxis stroke="#94a3b8" fontSize={12} />
-                <Tooltip contentStyle={{ backgroundColor: "#0f172a", border: "1px solid #334155", borderRadius: "8px" }} />
-                <Line type="monotone" dataKey="receita" stroke="#06b6d4" strokeWidth={3} dot={{ fill: "#06b6d4" }} />
-              </LineChart>
-            </ResponsiveContainer>
+            <div className="h-[300px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={revenueData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
+                  <XAxis dataKey="label" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+                  <YAxis
+                    stroke="#94a3b8"
+                    fontSize={12}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(val) => `R$${val}`}
+                  />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: "#0f172a", border: "1px solid #1e293b", borderRadius: "8px" }}
+                    itemStyle={{ color: "#0ea5e9" }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="receita"
+                    stroke="#0ea5e9"
+                    strokeWidth={3}
+                    dot={{ fill: "#0ea5e9", strokeWidth: 2, r: 4 }}
+                    activeDot={{ r: 6, strokeWidth: 0 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
           </CardContent>
         </Card>
 
-        <Card className={cardClass}>
+        <Card className="bg-card/50 border-primary/20">
           <CardHeader>
-            <CardTitle className="text-primary">Mix Financeiro</CardTitle>
+            <CardTitle className="text-base font-semibold">Distribuição Financeira</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie data={financialData} cx="50%" cy="50%" outerRadius={80} dataKey="value">
-                  <Cell fill="#06b6d4" />
-                  <Cell fill="#2150af" />
-                  <Cell fill="#ef4444" />
-                </Pie>
-                <Tooltip contentStyle={{ backgroundColor: "#0f172a", border: "1px solid #334155", borderRadius: "8px" }} />
-              </PieChart>
-            </ResponsiveContainer>
+            <div className="h-[300px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={financialData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={5}
+                    dataKey="value"
+                  >
+                    <Cell fill="#0ea5e9" />
+                    <Cell fill="#10b981" />
+                    <Cell fill="#f43f5e" />
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{ backgroundColor: "#0f172a", border: "1px solid #1e293b", borderRadius: "8px" }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="mt-4 space-y-2">
+              {financialData.map((item, i) => (
+                <div key={item.name} className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="w-3 h-3 rounded-full"
+                      style={{ backgroundColor: ["#0ea5e9", "#10b981", "#f43f5e"][i] }}
+                    />
+                    <span className="text-muted-foreground">{item.name}</span>
+                  </div>
+                  <span className="font-medium text-white">{formatBRL(item.value)}</span>
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
       </div>
