@@ -90,6 +90,14 @@ export default function Dashboard() {
     amount: 0,
     description: "",
   });
+  
+  const [isReturnDialogOpen, setIsReturnDialogOpen] = useState(false);
+  const [newReturn, setNewReturn] = useState<Partial<ExtendedReturn>>({
+  product_id: '',
+  quantity: 0,
+  reason: '',
+  date: new Date().toISOString().split('T')[0] as string
+  });
 
   const [costHistory, setCostHistory] = useState<CostHistoryPoint[]>([]);
   const [fixedCostHistory, setFixedCostHistory] = useState<CostHistoryPointByCategory[]>([]);
@@ -129,17 +137,18 @@ export default function Dashboard() {
   }, []);
 
   const refetchReturns = useCallback(async (currentSession: any) => {
-    if (!currentSession?.user) return;
-    const { data, error } = await supabase
-      .from('returns')
-      .select('*')
-      .eq('user_id', currentSession.user.id);
-    if (error) {
-      toast.error('Erro ao recarregar devoluções: ' + error.message);
-    } else {
-      setReturns(data || []);
-    }
-  }, []);
+  if (!currentSession?.user) return;
+  const { data, error } = await supabase
+    .from('returns')
+    .select('*')
+    .eq('user_id', currentSession.user.id);
+  if (error) {
+    toast.error('Erro ao recarregar devoluções: ' + error.message);
+  } else {
+    setReturns((data as any[]) || []);
+  }
+}, []);
+  
 
   const refetchCostHistory = useCallback(async (currentSession: any) => {
     if (!currentSession?.user) return;
@@ -781,17 +790,17 @@ export default function Dashboard() {
     );
   };
 
-  const renderDevolutions = () => (
-    <ReturnForm
-      returns={returns}
-      onAddReturn={handleAddReturn}
-      onEditReturn={handleEditReturn}
-      onDeleteReturn={(item: any) => handleDeleteReturn(item.id)}
-      onDuplicateReturn={handleDuplicateReturn}
-      onMoveToProcessing={(item: any) => handleMoveToProcessing(item.id)}
-      onMoveToCompleted={(item: any) => handleMoveToCompleted(item.id)}
-      onAddToStock={handleAddReturnToStock}
-    />
+    const renderDevolutions = () => (
+      <ReturnForm
+        returns={returns}
+        onAddReturn={handleAddReturn}
+        onEditReturn={handleEditReturn}
+        onDeleteReturn={(item: any) => handleDeleteReturn(item.id)}
+        onDuplicateReturn={handleDuplicateReturn}
+        onMoveToProcessing={(item: any) => handleMoveToProcessing(item.id)}
+        onMoveToCompleted={(item: any) => handleMoveToCompleted(item.id)}
+        onAddToStock={handleAddReturnToStock}
+      />
   );
 
   if (loading) {

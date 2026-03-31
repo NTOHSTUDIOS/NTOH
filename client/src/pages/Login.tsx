@@ -1,5 +1,5 @@
 // client/src/pages/Login.tsx
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -16,8 +16,15 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  // 🔍 DEBUG: Verifica supabase client no mount
+  useEffect(() => {
+    console.log('🔍 Supabase client:', supabase);
+    console.log('🔍 Env URL:', process.env.NEXT_PUBLIC_SUPABASE_URL);
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('🔍 Login clicado! Email:', email); // Debug F12
     setLoading(true);
 
     try {
@@ -25,6 +32,7 @@ export default function Login() {
         email,
         password,
       });
+      console.log('🔍 Supabase response:', data, error); // Vê erro aqui
 
       if (error) throw error;
 
@@ -33,6 +41,7 @@ export default function Login() {
         setLocation("/app");
       }
     } catch (error: any) {
+      console.error('🔍 Login erro completo:', error);
       toast.error("Erro no login: " + error.message);
     } finally {
       setLoading(false);
