@@ -196,17 +196,32 @@ export default function Dashboard() {
     setNewCost({ category: "fixed", name: "", amount: 0, description: "" });
   };
 
-  // --- HANDLERS DE PRODUTOS (NOVO MODELO) ---
+  // --- HANDLERS DE PRODUTOS (CORRIGIDO PARA SKU E VARIATIONS JSONB) ---
   const handleAddProduct = async (product: Product) => {
     const { id, ...productWithoutId } = product;
-    const { data, error } = await supabase.from("products").insert([productWithoutId]).select().single();
+    
+    // ✅ Corrigido: Usando 'cost' para bater com o ProductForm.tsx
+    const { data, error } = await supabase.from("products").insert([{
+      name: productWithoutId.name,
+      sku: productWithoutId.sku,
+      cost: productWithoutId.cost,
+      variations: productWithoutId.variations // JSONB
+    }]).select().single();
+
     if (error) { console.error(error); toast.error("Erro ao adicionar produto"); return; }
     setProducts([...products, data]);
     toast.success("Produto adicionado");
   };
 
   const handleEditProduct = async (product: Product) => {
-    const { error } = await supabase.from("products").update(product).eq("id", product.id);
+    // ✅ Corrigido: Usando 'cost' para bater com o ProductForm.tsx
+    const { error } = await supabase.from("products").update({
+      name: product.name,
+      sku: product.sku,
+      cost: product.cost,
+      variations: product.variations
+    }).eq("id", product.id);
+
     if (error) { console.error(error); toast.error("Erro ao atualizar produto"); return; }
     setProducts(products.map((p) => (p.id === product.id ? product : p)));
     toast.success("Produto atualizado");
@@ -221,7 +236,13 @@ export default function Dashboard() {
 
   const handleDuplicateProduct = async (product: Product) => {
     const { id, ...newItemWithoutId } = product;
-    const { data, error } = await supabase.from("products").insert([newItemWithoutId]).select().single();
+    const { data, error } = await supabase.from("products").insert([{
+      name: newItemWithoutId.name,
+      sku: newItemWithoutId.sku,
+      cost: newItemWithoutId.cost,
+      variations: newItemWithoutId.variations
+    }]).select().single();
+
     if (error) { console.error(error); toast.error("Erro ao duplicar produto"); return; }
     setProducts([...products, data]);
     toast.success("Produto duplicado");
@@ -268,25 +289,24 @@ export default function Dashboard() {
   };
 
   const handleAddReturnToStock = async (returnItem: Return) => {
-    const newProduct: Product = {
-      id: "",
+    // ✅ Corrigido para bater com a interface Product do ProductForm
+    const newProduct: any = {
       name: returnItem.name,
       sku: returnItem.sku || "RETORNO",
-      cost: returnItem.cost,
+      cost: returnItem.cost || 0,
       variations: [
         {
-          id: "",
-          sku: returnItem.sku,
-          name: returnItem.color && returnItem.size 
-            ? `${returnItem.color} - ${returnItem.size}`
-            : returnItem.color || returnItem.size || "Padrão",
-          quantity: returnItem.quantity,
+          sku: returnItem.sku || "RETORNO",
+          cost: returnItem.cost || 0,
+          quantity: returnItem.quantity || 1,
+          color: returnItem.color || "",
+          size: returnItem.size || "",
+          id: ""
         }
       ]
     };
     
-    const { id, ...productWithoutId } = newProduct;
-    const { data, error } = await supabase.from("products").insert([productWithoutId]).select().single();
+    const { data, error } = await supabase.from("products").insert([newProduct]).select().single();
     if (error) { toast.error("Erro ao adicionar ao estoque"); return; }
     setProducts([...products, data]);
     toast.success("Produto retornado ao estoque");
@@ -303,6 +323,7 @@ export default function Dashboard() {
     if (loading) return;
     const syncHistory = async () => {
       const today = toISODateKey(new Date());
+      // ✅ Corrigido: Usando upsert com onConflict para evitar o erro de data
       await supabase.from("cost_history").upsert({
         date: today,
         total: totalOperationalCosts,

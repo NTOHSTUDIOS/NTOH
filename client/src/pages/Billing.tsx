@@ -23,18 +23,21 @@ import {
   YAxis,
 } from "recharts";
 
-// Interface atualizada para suportar variações
+// ✅ Interface atualizada para bater com o Dashboard.tsx e ProductForm.tsx
 interface ProductVariation {
   id: string;
   sku: string;
-  name: string;
+  color: string;
+  size: string;
   quantity: number;
+  cost: number; // Agora usamos 'cost' em vez de 'price'
 }
 
 interface Product {
   id: string;
   name: string;
-  cost: number;
+  sku: string;
+  cost: number; // Agora usamos 'cost' em vez de 'base_price'
   variations: ProductVariation[];
 }
 
@@ -136,7 +139,8 @@ export default function Billing({ fixedCosts, variableCosts, products }: Billing
 
   const productCostById = useMemo(() => {
     const map = new Map<string, number>();
-    for (const p of products) map.set(p.id, p.cost);
+    // ✅ Usando 'cost' em vez de 'base_price'
+    for (const p of products) map.set(p.id, p.cost || 0);
     return map;
   }, [products]);
 
@@ -170,12 +174,12 @@ export default function Billing({ fixedCosts, variableCosts, products }: Billing
   const profitPercentageNum = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
   const profitPercentage = profitPercentageNum.toFixed(1);
 
-  // Ajustado para somar quantidades de todas as variações
+  // ✅ Ajustado para somar quantidades de todas as variações usando 'cost'
   const averageProductCost = useMemo(() => {
     if (products.length === 0) return 0;
     const totalInventoryValue = products.reduce((sum, p) => {
-      const totalQty = p.variations.reduce((vSum, v) => vSum + v.quantity, 0);
-      return sum + p.cost * totalQty;
+      const totalQty = p.variations?.reduce((vSum, v) => vSum + (Number(v.quantity) || 0), 0) || 0;
+      return sum + (Number(p.cost) || 0) * totalQty;
     }, 0);
     return totalInventoryValue / products.length;
   }, [products]);
@@ -283,8 +287,8 @@ export default function Billing({ fixedCosts, variableCosts, products }: Billing
         </div>
 
         <div className="flex items-center gap-4 z-10">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/20 border border-primary/30 shadow-[0_0_15px_rgba(33,80,175,0.2)]">
-            {includeOperationalCosts ? <Target className="h-6 w-6 text-primary" /> : <Rocket className="h-6 w-6 text-cyan-300" />}
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/20 border border-primary/30 shadow-[0_0_15px_rgba(33,80,17,0.3)]">
+            <Target className="w-6 h-6 text-primary" />
           </div>
           <div>
             <h3 className="text-base font-bold text-foreground tracking-tight">
